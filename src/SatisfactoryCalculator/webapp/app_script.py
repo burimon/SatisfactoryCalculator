@@ -306,14 +306,24 @@ SCRIPT = r"""
       if (!targetBaseRate) {
         throw new Error(`Recipe ${recipe.id} does not use ${targetItemId}`);
       }
-      const machineRate = perMachineRate(targetItemId, targetBaseRate, beltCapacity);
-      const machineCount = machineRate === 0 ? 0 : targetRatePerMinute / machineRate;
       const multiplier = targetRatePerMinute / targetBaseRate;
+      const entryRatePerMinute = (entry) =>
+        isPowerItem(entry.item.id)
+          ? entry.amount
+          : (entry.amount * 60) / recipe.duration_seconds;
+      const scaledRequirements = [...recipe.inputs, ...recipe.outputs].map((entry) => {
+        const baseRate = entryRatePerMinute(entry);
+        const cappedRate = perMachineRate(entry.item.id, baseRate, beltCapacity);
+        const totalRate = baseRate * multiplier;
+        return cappedRate === 0 ? 0 : totalRate / cappedRate;
+      });
+      const machineCount = scaledRequirements.length
+        ? Math.max(...scaledRequirements)
+        : 0;
+      const machineRate = perMachineRate(targetItemId, targetBaseRate, beltCapacity);
       const scaleEntries = (entries) => entries.map((entry) => ({
         item: entry.item,
-        amount_per_minute: isPowerItem(entry.item.id)
-          ? entry.amount * multiplier
-          : (entry.amount * 60 / recipe.duration_seconds) * multiplier
+        amount_per_minute: entryRatePerMinute(entry) * multiplier
       }));
       return {
         multiplier,

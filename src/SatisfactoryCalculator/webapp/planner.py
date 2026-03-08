@@ -71,21 +71,34 @@ def scale_recipe_for_target(
     belt_capacity: float | None = None,
 ) -> ScaledRecipe:
     base_rate = recipe_entry_rate_per_minute(recipe, target_item_id)
+    multiplier = 0.0 if base_rate == 0 else target_rate_per_minute / base_rate
+
+    def entry_rate(item: Item, amount: float) -> float:
+        if item is Item.POWER:
+            return amount
+        return amount * 60 / recipe.duration_seconds
+
+    scaled_requirements = []
+    for item, amount in recipe.inputs.items():
+        total_rate = entry_rate(item, amount) * multiplier
+        capped_rate = _per_machine_rate(item.value, entry_rate(item, amount), belt_capacity)
+        scaled_requirements.append(0.0 if capped_rate == 0 else total_rate / capped_rate)
+    for item, amount in recipe.outputs.items():
+        total_rate = entry_rate(item, amount) * multiplier
+        capped_rate = _per_machine_rate(item.value, entry_rate(item, amount), belt_capacity)
+        scaled_requirements.append(0.0 if capped_rate == 0 else total_rate / capped_rate)
+
+    machine_count = max(scaled_requirements, default=0.0)
     per_machine_rate = _per_machine_rate(
         target_item_id=target_item_id,
         base_rate=base_rate,
         belt_capacity=belt_capacity,
     )
-    machine_count = 0.0 if per_machine_rate == 0 else target_rate_per_minute / per_machine_rate
-    multiplier = 0.0 if base_rate == 0 else target_rate_per_minute / base_rate
 
     def scale(amounts: dict[Item, float]) -> dict[str, float]:
         scaled: dict[str, float] = {}
         for item, amount in amounts.items():
-            if item is Item.POWER:
-                scaled[item.value] = amount * multiplier
-            else:
-                scaled[item.value] = (amount * 60 / recipe.duration_seconds) * multiplier
+            scaled[item.value] = entry_rate(item, amount) * multiplier
         return scaled
 
     return {

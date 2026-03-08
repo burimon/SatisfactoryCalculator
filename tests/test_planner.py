@@ -39,6 +39,14 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(scaled["outputs"]["wire"], 90.0)
         self.assertEqual(scaled["inputs"]["copper_ingot"], 45.0)
 
+    def test_scale_recipe_for_target_uses_input_belt_limit_for_machine_count(self) -> None:
+        scaled = scale_recipe_for_target(get_recipe("iron_plate"), "iron_plate", 40.0, 20.0)
+        self.assertEqual(scaled["requested_target_rate"], 40.0)
+        self.assertEqual(scaled["per_machine_rate"], 20.0)
+        self.assertEqual(scaled["machine_count"], 3.0)
+        self.assertEqual(scaled["outputs"]["iron_plate"], 40.0)
+        self.assertEqual(scaled["inputs"]["iron_ingot"], 60.0)
+
     def test_scale_recipe_for_target_handles_multiple_inputs(self) -> None:
         scaled = scale_recipe_for_target(
             get_recipe("reinforced_iron_plate"),
@@ -67,6 +75,11 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(scaled["multiplier"], 1.0)
         self.assertEqual(scaled["inputs"]["iron_ingot"], 30.0)
         self.assertEqual(scaled["outputs"]["iron_plate"], 20.0)
+
+    def test_scale_recipe_for_target_applies_belt_limit_to_input_targets(self) -> None:
+        scaled = scale_recipe_for_target(get_recipe("iron_plate"), "iron_ingot", 60.0, 20.0)
+        self.assertEqual(scaled["per_machine_rate"], 20.0)
+        self.assertEqual(scaled["machine_count"], 3.0)
 
     def test_scale_recipe_for_target_keeps_power_in_mw_units(self) -> None:
         scaled = scale_recipe_for_target(get_recipe("power_biomass"), "power", 30.0)
