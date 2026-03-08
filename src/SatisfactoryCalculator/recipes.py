@@ -1,0 +1,118 @@
+from dataclasses import dataclass
+from enum import Enum
+
+
+class Item(str, Enum):
+    IRON_ORE = "iron_ore"
+    COPPER_ORE = "copper_ore"
+    LIMESTONE = "limestone"
+    IRON_INGOT = "iron_ingot"
+    COPPER_INGOT = "copper_ingot"
+    CONCRETE = "concrete"
+    IRON_PLATE = "iron_plate"
+    IRON_ROD = "iron_rod"
+    WIRE = "wire"
+    CABLE = "cable"
+    SCREW = "screw"
+    REINFORCED_IRON_PLATE = "reinforced_iron_plate"
+
+
+ItemAmounts = dict[Item, float]
+
+
+@dataclass(frozen=True, slots=True)
+class Recipe:
+    id: str
+    name: str
+    inputs: ItemAmounts
+    outputs: ItemAmounts
+    duration_seconds: float
+    building: str | None = None
+    alternate: bool = False
+
+
+RECIPES: dict[str, Recipe] = {
+    "iron_ingot": Recipe(
+        id="iron_ingot",
+        name="Iron Ingot",
+        inputs={Item.IRON_ORE: 1},
+        outputs={Item.IRON_INGOT: 1},
+        duration_seconds=2.0,
+        building="smelter",
+    ),
+    "copper_ingot": Recipe(
+        id="copper_ingot",
+        name="Copper Ingot",
+        inputs={Item.COPPER_ORE: 1},
+        outputs={Item.COPPER_INGOT: 1},
+        duration_seconds=2.0,
+        building="smelter",
+    ),
+    "concrete": Recipe(
+        id="concrete",
+        name="Concrete",
+        inputs={Item.LIMESTONE: 3},
+        outputs={Item.CONCRETE: 1},
+        duration_seconds=4.0,
+        building="constructor",
+    ),
+    "iron_plate": Recipe(
+        id="iron_plate",
+        name="Iron Plate",
+        inputs={Item.IRON_INGOT: 3},
+        outputs={Item.IRON_PLATE: 2},
+        duration_seconds=6.0,
+        building="constructor",
+    ),
+    "iron_rod": Recipe(
+        id="iron_rod",
+        name="Iron Rod",
+        inputs={Item.IRON_INGOT: 1},
+        outputs={Item.IRON_ROD: 1},
+        duration_seconds=4.0,
+        building="constructor",
+    ),
+    "wire": Recipe(
+        id="wire",
+        name="Wire",
+        inputs={Item.COPPER_INGOT: 1},
+        outputs={Item.WIRE: 2},
+        duration_seconds=4.0,
+        building="constructor",
+    ),
+    "cable": Recipe(
+        id="cable",
+        name="Cable",
+        inputs={Item.WIRE: 2},
+        outputs={Item.CABLE: 1},
+        duration_seconds=2.0,
+        building="constructor",
+    ),
+    "screw": Recipe(
+        id="screw",
+        name="Screw",
+        inputs={Item.IRON_ROD: 1},
+        outputs={Item.SCREW: 4},
+        duration_seconds=6.0,
+        building="constructor",
+    ),
+    "reinforced_iron_plate": Recipe(
+        id="reinforced_iron_plate",
+        name="Reinforced Iron Plate",
+        inputs={Item.IRON_PLATE: 6, Item.SCREW: 12},
+        outputs={Item.REINFORCED_IRON_PLATE: 1},
+        duration_seconds=12.0,
+        building="assembler",
+    ),
+}
+
+
+def get_recipe(recipe_id: str) -> Recipe:
+    try:
+        return RECIPES[recipe_id]
+    except KeyError as exc:
+        raise KeyError(f"Unknown recipe id: {recipe_id}") from exc
+
+
+def find_recipes_by_output(item: Item) -> list[Recipe]:
+    return [recipe for recipe in RECIPES.values() if item in recipe.outputs]
