@@ -58,6 +58,17 @@ class RecipeRegistryTests(unittest.TestCase):
             ],
         )
 
+    def test_find_recipes_by_output_returns_solid_biofuel_recipe(self) -> None:
+        recipes = find_recipes_by_output(Item.SOLID_BIOFUEL)
+        self.assertEqual([recipe.id for recipe in recipes], ["solid_biofuel"])
+
+    def test_find_recipes_by_output_returns_biomass_power_variants(self) -> None:
+        recipes = find_recipes_by_output(Item.POWER)
+        self.assertEqual(
+            [recipe.id for recipe in recipes],
+            ["power_biomass", "power_solid_biofuel"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

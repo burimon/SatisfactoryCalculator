@@ -38,6 +38,13 @@ class WebApiTests(unittest.TestCase):
             ],
         )
 
+    def test_find_recipe_payloads_by_output_returns_power_recipe_payloads(self) -> None:
+        payloads = find_recipe_payloads_by_output("power")
+        self.assertEqual(
+            [payload["id"] for payload in payloads],
+            ["power_biomass", "power_solid_biofuel"],
+        )
+
     def test_recipe_and_item_lists_are_sorted_by_display_name(self) -> None:
         recipe_names = [payload["name"] for payload in list_recipes()]
         item_names = [payload["name"] for payload in list_items()]

@@ -8,6 +8,8 @@ class Item(str, Enum):
     MYCELIA = "mycelia"
     ALIEN_PROTEIN = "alien_protein"
     BIOMASS = "biomass"
+    SOLID_BIOFUEL = "solid_biofuel"
+    POWER = "power"
     IRON_ORE = "iron_ore"
     COPPER_ORE = "copper_ore"
     LIMESTONE = "limestone"
@@ -68,6 +70,30 @@ RECIPES: dict[str, Recipe] = {
         outputs={Item.BIOMASS: 100},
         duration_seconds=4.0,
         building="constructor",
+    ),
+    "solid_biofuel": Recipe(
+        id="solid_biofuel",
+        name="Solid Biofuel",
+        inputs={Item.BIOMASS: 8},
+        outputs={Item.SOLID_BIOFUEL: 4},
+        duration_seconds=4.0,
+        building="constructor",
+    ),
+    "power_biomass": Recipe(
+        id="power_biomass",
+        name="Power (Biomass)",
+        inputs={Item.BIOMASS: 1},
+        outputs={Item.POWER: 30},
+        duration_seconds=6.0,
+        building="biomass_burner",
+    ),
+    "power_solid_biofuel": Recipe(
+        id="power_solid_biofuel",
+        name="Power (Solid Biofuel)",
+        inputs={Item.SOLID_BIOFUEL: 1},
+        outputs={Item.POWER: 30},
+        duration_seconds=15.0,
+        building="biomass_burner",
     ),
     "iron_ingot": Recipe(
         id="iron_ingot",
