@@ -1,4 +1,4 @@
-from .ui import run_recipe_ui
+from .webapp import run_web_app
 
 if __name__ == "__main__":
-    run_recipe_ui()
+    run_web_app()

@@ -46,6 +46,18 @@ class RecipeRegistryTests(unittest.TestCase):
         recipes = find_recipes_by_output(Item.IRON_INGOT)
         self.assertEqual([recipe.id for recipe in recipes], ["iron_ingot"])
 
+    def test_find_recipes_by_output_returns_all_biomass_variants(self) -> None:
+        recipes = find_recipes_by_output(Item.BIOMASS)
+        self.assertEqual(
+            [recipe.id for recipe in recipes],
+            [
+                "biomass_leaves",
+                "biomass_wood",
+                "biomass_mycelia",
+                "biomass_alien_protein",
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

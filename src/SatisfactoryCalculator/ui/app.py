@@ -4,9 +4,16 @@ import tkinter as tk
 from tkinter import ttk
 
 from ..recipes import RECIPES, Item, find_recipes_by_output, get_recipe
-from .flow_canvas import draw_recipe_flow
-from .presenters import build_item_options, build_recipe_options, item_label, recipe_option
-from .styles import LINE, PANEL_ALT, configure_styles
+from .detail_panel import update_detail_panel
+from .presenters import (
+    RateMode,
+    build_item_options,
+    build_rate_options,
+    build_recipe_options,
+    item_label,
+    recipe_option,
+)
+from .styles import configure_styles
 
 
 def run_recipe_ui() -> None:
@@ -18,10 +25,15 @@ def run_recipe_ui() -> None:
 
     default_recipe = get_recipe(sorted(RECIPES)[0])
     show_debug_ids = tk.BooleanVar(value=False)
-    zoom_var = tk.DoubleVar(value=1.0)
+    rate_choice_var = tk.StringVar()
     recipe_choice_var = tk.StringVar()
     output_choice_var = tk.StringVar()
     status_var = tk.StringVar(value="Browse recipes visually or search by output item.")
+    summary_name_var = tk.StringVar()
+    summary_building_var = tk.StringVar()
+    summary_cycle_var = tk.StringVar()
+    summary_rate_var = tk.StringVar()
+    summary_id_var = tk.StringVar()
 
     app = ttk.Frame(root, style="App.TFrame", padding=18)
     app.pack(fill=tk.BOTH, expand=True)
@@ -47,24 +59,23 @@ def run_recipe_ui() -> None:
     content.rowconfigure(0, weight=1)
     content.rowconfigure(1, weight=1)
 
-    flow_panel = ttk.Frame(content, style="Panel.TFrame", padding=18)
-    flow_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
-    flow_panel.columnconfigure(0, weight=1)
-    flow_panel.rowconfigure(3, weight=1)
+    detail_panel = ttk.Frame(content, style="Panel.TFrame", padding=18)
+    detail_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+    detail_panel.columnconfigure(0, weight=1)
+    detail_panel.rowconfigure(5, weight=1)
+    detail_panel.rowconfigure(7, weight=1)
 
-    ttk.Label(flow_panel, text="Recipe Flow", style="Section.TLabel").grid(
+    ttk.Label(detail_panel, text="Recipe Details", style="Section.TLabel").grid(
         row=0, column=0, sticky="w"
     )
     ttk.Label(
-        flow_panel,
-        text=(
-            "A visual recipe card that scales better once recipes have multiple inputs and outputs."
-        ),
+        detail_panel,
+        text="Inspect the selected recipe as structured data with readable inputs and outputs.",
         style="Body.TLabel",
-    ).grid(row=1, column=0, sticky="w", pady=(4, 14))
+    ).grid(row=1, column=0, sticky="w", pady=(4, 10))
 
-    controls = ttk.Frame(flow_panel, style="Panel.TFrame")
-    controls.grid(row=2, column=0, sticky="ew", pady=(0, 14))
+    controls = ttk.Frame(detail_panel, style="Panel.TFrame")
+    controls.grid(row=2, column=0, sticky="ew", pady=(0, 10))
     controls.columnconfigure(1, weight=1)
     controls.columnconfigure(2, weight=0)
     controls.columnconfigure(3, weight=0)
@@ -79,30 +90,84 @@ def run_recipe_ui() -> None:
         style="App.TCombobox",
     )
     recipe_combo.grid(row=0, column=1, sticky="ew")
+    rate_combo = ttk.Combobox(
+        controls,
+        textvariable=rate_choice_var,
+        state="readonly",
+        style="App.TCombobox",
+        width=12,
+    )
+    rate_combo.grid(row=0, column=2, sticky="e", padx=(14, 0))
     debug_toggle = ttk.Checkbutton(
         controls,
         text="Debug ids",
         variable=show_debug_ids,
         style="Debug.TCheckbutton",
     )
-    debug_toggle.grid(row=0, column=2, sticky="e", padx=(14, 0))
-    zoom_controls = ttk.Frame(controls, style="Panel.TFrame")
-    zoom_controls.grid(row=0, column=3, sticky="e", padx=(14, 0))
-    zoom_out_button = ttk.Button(zoom_controls, text="-", style="App.TButton", width=3)
-    zoom_out_button.grid(row=0, column=0)
-    zoom_label = ttk.Label(zoom_controls, style="Small.TLabel", width=6, anchor="center")
-    zoom_label.grid(row=0, column=1, padx=8)
-    zoom_in_button = ttk.Button(zoom_controls, text="+", style="App.TButton", width=3)
-    zoom_in_button.grid(row=0, column=2)
+    debug_toggle.grid(row=0, column=3, sticky="e", padx=(14, 0))
 
-    flow_canvas = tk.Canvas(
-        flow_panel,
-        bg=PANEL_ALT,
-        highlightthickness=1,
-        highlightbackground=LINE,
-        relief="flat",
+    summary_box = ttk.Frame(detail_panel, style="Inset.TFrame", padding=10)
+    summary_box.grid(row=3, column=0, sticky="ew")
+    summary_box.columnconfigure(0, weight=1)
+    summary_box.columnconfigure(1, weight=1)
+
+    ttk.Label(summary_box, textvariable=summary_name_var, style="Section.TLabel").grid(
+        row=0, column=0, sticky="w"
     )
-    flow_canvas.grid(row=3, column=0, sticky="nsew")
+    summary_id_label = ttk.Label(summary_box, textvariable=summary_id_var, style="Small.TLabel")
+    summary_id_label.grid(row=0, column=1, sticky="e")
+    ttk.Label(summary_box, text="Building", style="Small.TLabel").grid(
+        row=1, column=0, sticky="w", pady=(8, 0)
+    )
+    ttk.Label(summary_box, textvariable=summary_building_var, style="Body.TLabel").grid(
+        row=1, column=1, sticky="w", pady=(8, 0)
+    )
+    ttk.Label(summary_box, text="Cycle Time", style="Small.TLabel").grid(
+        row=2, column=0, sticky="w", pady=(4, 0)
+    )
+    ttk.Label(summary_box, textvariable=summary_cycle_var, style="Body.TLabel").grid(
+        row=2, column=1, sticky="w", pady=(4, 0)
+    )
+    ttk.Label(summary_box, text="Rate View", style="Small.TLabel").grid(
+        row=3, column=0, sticky="w", pady=(4, 0)
+    )
+    ttk.Label(summary_box, textvariable=summary_rate_var, style="Body.TLabel").grid(
+        row=3, column=1, sticky="w", pady=(4, 0)
+    )
+
+    ttk.Label(detail_panel, text="Inputs", style="Section.TLabel").grid(
+        row=4, column=0, sticky="w", pady=(12, 6)
+    )
+    inputs_table = ttk.Treeview(
+        detail_panel,
+        style="Compact.Treeview",
+        columns=("item", "amount"),
+        show="headings",
+        selectmode="none",
+        height=4,
+    )
+    inputs_table.heading("item", text="Item")
+    inputs_table.heading("amount", text="Amount")
+    inputs_table.column("item", width=240, anchor="w")
+    inputs_table.column("amount", width=220, anchor="w")
+    inputs_table.grid(row=5, column=0, sticky="nsew")
+
+    ttk.Label(detail_panel, text="Outputs", style="Section.TLabel").grid(
+        row=6, column=0, sticky="w", pady=(12, 6)
+    )
+    outputs_table = ttk.Treeview(
+        detail_panel,
+        style="Compact.Treeview",
+        columns=("item", "amount"),
+        show="headings",
+        selectmode="none",
+        height=4,
+    )
+    outputs_table.heading("item", text="Item")
+    outputs_table.heading("amount", text="Amount")
+    outputs_table.column("item", width=240, anchor="w")
+    outputs_table.column("amount", width=220, anchor="w")
+    outputs_table.grid(row=7, column=0, sticky="nsew")
 
     side_panel = ttk.Frame(content, style="Panel.TFrame", padding=18)
     side_panel.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
@@ -114,7 +179,7 @@ def run_recipe_ui() -> None:
     )
     ttk.Label(
         side_panel,
-        text="Use official item labels in the UI, then load any result back into the flow view.",
+        text="Use official item labels in the UI, then load any result back into the detail view.",
         style="Body.TLabel",
     ).grid(row=1, column=0, sticky="w", pady=(4, 14))
 
@@ -163,31 +228,36 @@ def run_recipe_ui() -> None:
 
     recipe_option_to_id: dict[str, str] = {}
     item_option_to_item: dict[str, Item] = {}
+    rate_option_to_mode: dict[str, RateMode] = {}
     current_recipe_id = default_recipe.id
 
     def layout_content(width: int) -> None:
         if width < 980:
-            flow_panel.grid_configure(row=0, column=0, padx=0, pady=(0, 10))
+            detail_panel.grid_configure(row=0, column=0, padx=0, pady=(0, 10))
             side_panel.grid_configure(row=1, column=0, padx=0, pady=(10, 0))
             content.columnconfigure(0, weight=1)
             content.columnconfigure(1, weight=0)
         else:
-            flow_panel.grid_configure(row=0, column=0, padx=(0, 10), pady=0)
+            detail_panel.grid_configure(row=0, column=0, padx=(0, 10), pady=0)
             side_panel.grid_configure(row=0, column=1, padx=(10, 0), pady=0)
             content.columnconfigure(0, weight=5)
             content.columnconfigure(1, weight=3)
 
     def refresh_selectors() -> None:
-        nonlocal recipe_option_to_id, item_option_to_item
+        nonlocal recipe_option_to_id, item_option_to_item, rate_option_to_mode
 
         recipe_options, recipe_option_to_id = build_recipe_options(show_debug_ids.get())
         item_options, item_option_to_item = build_item_options(show_debug_ids.get())
+        rate_options, rate_option_to_mode = build_rate_options()
 
         recipe_combo.configure(values=recipe_options)
         output_combo.configure(values=item_options)
+        rate_combo.configure(values=rate_options)
 
         current_recipe = get_recipe(current_recipe_id)
         recipe_choice_var.set(recipe_option(current_recipe, show_debug_ids.get()))
+        if not rate_choice_var.get():
+            rate_choice_var.set(rate_options[0])
 
         current_item = item_option_to_item.get(output_choice_var.get(), Item.IRON_INGOT)
         current_item_label = (
@@ -203,13 +273,30 @@ def run_recipe_ui() -> None:
     def selected_item() -> Item:
         return item_option_to_item[output_choice_var.get()]
 
+    def selected_rate_mode() -> RateMode:
+        return rate_option_to_mode[rate_choice_var.get()]
+
     def show_recipe(*_: object) -> None:
         nonlocal current_recipe_id
         recipe_id = selected_recipe_id()
         current_recipe_id = recipe_id
         recipe = get_recipe(recipe_id)
-        draw_recipe_flow(flow_canvas, recipe, show_debug_ids.get(), zoom_var.get())
-        zoom_label.configure(text=f"{int(zoom_var.get() * 100)}%")
+        update_detail_panel(
+            summary_name_var,
+            summary_building_var,
+            summary_cycle_var,
+            summary_rate_var,
+            summary_id_var,
+            inputs_table,
+            outputs_table,
+            recipe,
+            show_debug_ids.get(),
+            selected_rate_mode(),
+        )
+        if show_debug_ids.get():
+            summary_id_label.grid()
+        else:
+            summary_id_label.grid_remove()
         status_var.set(f"Loaded recipe: {recipe.name}")
 
     def search_by_output(*_: object) -> None:
@@ -245,34 +332,14 @@ def run_recipe_ui() -> None:
         show_recipe()
         search_by_output()
 
-    def set_zoom(value: float) -> None:
-        zoom_var.set(max(0.7, min(1.7, round(value, 2))))
-        show_recipe()
-
-    def zoom_in() -> None:
-        set_zoom(zoom_var.get() + 0.1)
-
-    def zoom_out() -> None:
-        set_zoom(zoom_var.get() - 0.1)
-
-    def handle_zoom(event: tk.Event[tk.Misc]) -> None:
-        delta = getattr(event, "delta", 0)
-        if delta > 0:
-            zoom_in()
-        elif delta < 0:
-            zoom_out()
-
     refresh_selectors()
     recipe_combo.bind("<<ComboboxSelected>>", show_recipe)
+    rate_combo.bind("<<ComboboxSelected>>", show_recipe)
     output_combo.bind("<<ComboboxSelected>>", search_by_output)
     results_table.bind("<<TreeviewSelect>>", load_selected_result)
     results_table.bind("<Double-1>", load_selected_result)
     search_button.configure(command=search_by_output)
     debug_toggle.configure(command=on_toggle_debug)
-    zoom_in_button.configure(command=zoom_in)
-    zoom_out_button.configure(command=zoom_out)
-    flow_canvas.bind("<Configure>", lambda _event: show_recipe())
-    flow_canvas.bind("<MouseWheel>", handle_zoom)
     content.bind("<Configure>", lambda event: layout_content(event.width))
 
     layout_content(content.winfo_width())

@@ -3,6 +3,11 @@ from enum import Enum
 
 
 class Item(str, Enum):
+    LEAVES = "leaves"
+    WOOD = "wood"
+    MYCELIA = "mycelia"
+    ALIEN_PROTEIN = "alien_protein"
+    BIOMASS = "biomass"
     IRON_ORE = "iron_ore"
     COPPER_ORE = "copper_ore"
     LIMESTONE = "limestone"
@@ -32,6 +37,38 @@ class Recipe:
 
 
 RECIPES: dict[str, Recipe] = {
+    "biomass_leaves": Recipe(
+        id="biomass_leaves",
+        name="Biomass (Leaves)",
+        inputs={Item.LEAVES: 10},
+        outputs={Item.BIOMASS: 5},
+        duration_seconds=5.0,
+        building="constructor",
+    ),
+    "biomass_wood": Recipe(
+        id="biomass_wood",
+        name="Biomass (Wood)",
+        inputs={Item.WOOD: 4},
+        outputs={Item.BIOMASS: 20},
+        duration_seconds=4.0,
+        building="constructor",
+    ),
+    "biomass_mycelia": Recipe(
+        id="biomass_mycelia",
+        name="Biomass (Mycelia)",
+        inputs={Item.MYCELIA: 1},
+        outputs={Item.BIOMASS: 10},
+        duration_seconds=4.0,
+        building="constructor",
+    ),
+    "biomass_alien_protein": Recipe(
+        id="biomass_alien_protein",
+        name="Biomass (Alien Protein)",
+        inputs={Item.ALIEN_PROTEIN: 1},
+        outputs={Item.BIOMASS: 100},
+        duration_seconds=4.0,
+        building="constructor",
+    ),
     "iron_ingot": Recipe(
         id="iron_ingot",
         name="Iron Ingot",

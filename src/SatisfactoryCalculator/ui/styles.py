@@ -78,14 +78,34 @@ def configure_styles(root: tk.Tk) -> None:
         bordercolor=LINE,
     )
     style.configure(
+        "Compact.Treeview",
+        background="#fffdf9",
+        fieldbackground="#fffdf9",
+        foreground=TEXT,
+        rowheight=24,
+        bordercolor=LINE,
+    )
+    style.configure(
         "Results.Treeview.Heading",
         background=PANEL_ALT,
         foreground=TEXT,
         font=section_font,
         relief="flat",
     )
+    style.configure(
+        "Compact.Treeview.Heading",
+        background=PANEL_ALT,
+        foreground=TEXT,
+        font=small_font,
+        relief="flat",
+    )
     style.map(
         "Results.Treeview",
+        background=[("selected", "#dbe8f4")],
+        foreground=[("selected", TEXT)],
+    )
+    style.map(
+        "Compact.Treeview",
         background=[("selected", "#dbe8f4")],
         foreground=[("selected", TEXT)],
     )
