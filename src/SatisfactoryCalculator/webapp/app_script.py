@@ -2,10 +2,10 @@ SCRIPT = r"""
     const WORKFLOW_VERSION = 1;
     const POWER_ITEM_ID = "power";
     const BELT_CAPACITY_OPTIONS = [60, 120, 270, 480, 780];
-    const DEFAULT_NODE_WIDTH = 280;
-    const DEFAULT_NODE_HEIGHT = 210;
-    const MIN_NODE_WIDTH = 220;
-    const MIN_NODE_HEIGHT = 160;
+    const DEFAULT_NODE_WIDTH = 200;
+    const DEFAULT_NODE_HEIGHT = 152;
+    const MIN_NODE_WIDTH = 180;
+    const MIN_NODE_HEIGHT = 132;
     const state = {
       mode: "browser",
       recipes: [],
@@ -339,55 +339,190 @@ SCRIPT = r"""
       return state.planner.nodes.find((node) => node.id === nodeId) ?? null;
     }
 
-    function getPlannerNodeComputed(node) {
-      if (!node) return null;
-      const recipe = recipeById(node.recipeId);
-      if (!recipe) return null;
-      return {
-        recipe,
-        ...scaledRecipeRates(
+    function plannerNodeBeltCapacity(node) {
+      return node.beltCapacity ?? state.planner.defaultBeltCapacity ?? null;
+    }
+
+    function buildPlannerComputedMap() {
+      const computedById = new Map();
+      state.planner.nodes.forEach((node) => {
+        const recipe = recipeById(node.recipeId);
+        if (!recipe) return;
+        computedById.set(node.id, {
           recipe,
-          node.targetItemId,
-          node.targetRatePerMinute,
-          state.planner.defaultBeltCapacity ?? null
-        )
+          ...scaledRecipeRates(
+            recipe,
+            node.targetItemId,
+            node.targetRatePerMinute,
+            plannerNodeBeltCapacity(node)
+          )
+        });
+      });
+      return computedById;
+    }
+
+    function calculateAllocatedRate(edge, computedMap) {
+      const sourceComputed = computedMap.get(edge.sourceNodeId);
+      const targetComputed = computedMap.get(edge.targetNodeId);
+      if (!sourceComputed || !targetComputed) {
+        return {
+          sourceRate: 0,
+          targetRate: 0,
+          incomingEdgeCount: 0,
+          outgoingEdgeCount: 0,
+          totalIncomingSourceRate: 0,
+          totalOutgoingTargetRate: 0,
+          incomingShare: 0,
+          outgoingShare: 0,
+          allocatedRate: 0,
+          delta: 0,
+          status: "balanced"
+        };
+      }
+      const sourceRate = getItemRate(sourceComputed.outputs, edge.itemId);
+      const targetRate = getItemRate(targetComputed.inputs, edge.itemId);
+      const incomingEdges = state.planner.edges.filter(
+        (candidate) =>
+          candidate.targetNodeId === edge.targetNodeId && candidate.itemId === edge.itemId
+      );
+      const outgoingEdges = state.planner.edges.filter(
+        (candidate) =>
+          candidate.sourceNodeId === edge.sourceNodeId && candidate.itemId === edge.itemId
+      );
+      const totalIncomingSourceRate = incomingEdges.reduce((total, candidate) => {
+        const candidateComputed = computedMap.get(candidate.sourceNodeId);
+        return total + getItemRate(candidateComputed?.outputs ?? [], edge.itemId);
+      }, 0);
+      const totalOutgoingTargetRate = outgoingEdges.reduce((total, candidate) => {
+        const candidateComputed = computedMap.get(candidate.targetNodeId);
+        return total + getItemRate(candidateComputed?.inputs ?? [], edge.itemId);
+      }, 0);
+      const incomingLimitedTotal = Math.min(totalIncomingSourceRate, targetRate);
+      const outgoingLimitedTotal = Math.min(sourceRate, totalOutgoingTargetRate);
+      const incomingShare = incomingEdges.length > 1 && totalIncomingSourceRate > 0
+        ? incomingLimitedTotal * (sourceRate / totalIncomingSourceRate)
+        : targetRate;
+      const outgoingShare = outgoingEdges.length > 1 && totalOutgoingTargetRate > 0
+        ? outgoingLimitedTotal * (targetRate / totalOutgoingTargetRate)
+        : sourceRate;
+      const allocatedRate = Math.min(incomingShare, outgoingShare);
+      const delta = sourceRate - targetRate;
+      let status = "balanced";
+      if (delta > 0.01) status = "source_surplus";
+      if (delta < -0.01) status = "target_shortage";
+      return {
+        sourceRate,
+        targetRate,
+        incomingEdgeCount: incomingEdges.length,
+        outgoingEdgeCount: outgoingEdges.length,
+        totalIncomingSourceRate,
+        totalOutgoingTargetRate,
+        incomingShare,
+        outgoingShare,
+        allocatedRate,
+        delta,
+        status
       };
+    }
+
+    function buildPlannerAllocationMap(computedMap) {
+      return new Map(
+        state.planner.edges.map((edge) => [edge.id, calculateAllocatedRate(edge, computedMap)])
+      );
+    }
+
+    function nodeBalanceRows(node, computed, allocationMap, portType) {
+      const entries = portType === "input" ? computed.inputs : computed.outputs;
+      return entries.map((entry) => {
+        const connectedRate = state.planner.edges.reduce((total, edge) => {
+          const matchesNode = portType === "input"
+            ? edge.targetNodeId === node.id
+            : edge.sourceNodeId === node.id;
+          if (!matchesNode || edge.itemId !== entry.item.id) {
+            return total;
+          }
+          return total + (allocationMap.get(edge.id)?.allocatedRate ?? 0);
+        }, 0);
+        const delta = connectedRate - entry.amount_per_minute;
+        let status = "balanced";
+        if (delta > 0.01) status = "source_surplus";
+        if (delta < -0.01) status = "target_shortage";
+        return {
+          itemId: entry.item.id,
+          itemName: entry.item.name,
+          connectedRate,
+          expectedRate: entry.amount_per_minute,
+          status
+        };
+      });
+    }
+
+    function plannerBalanceMarkup(node, computed, allocationMap) {
+      const inputRows = nodeBalanceRows(node, computed, allocationMap, "input");
+      const outputRows = nodeBalanceRows(node, computed, allocationMap, "output");
+      const rows = [
+        ...inputRows.map((row) => ({ ...row, label: "In" })),
+        ...outputRows.map((row) => ({ ...row, label: "Out" }))
+      ];
+      return rows.length
+        ? rows.map((row) => `
+            <div class="planner-balance-row ${row.status}">
+              <span class="planner-balance-side">${row.label}</span>
+              <span class="planner-balance-item">${row.itemName}</span>
+              <span class="planner-balance-rates">
+                ${formatAmount(row.connectedRate)} / ${formatAmount(row.expectedRate)}
+              </span>
+            </div>
+          `).join("")
+        : '<div class="empty">No connected flow</div>';
+    }
+
+    function getPlannerNodeComputed(node, computedMap = null) {
+      if (!node) return null;
+      const plannerComputed = computedMap ?? buildPlannerComputedMap();
+      return plannerComputed.get(node.id) ?? null;
     }
 
     function getItemRate(entries, itemId) {
       return entries.find((entry) => entry.item.id === itemId)?.amount_per_minute ?? 0;
     }
 
-    function getConnectionCompatibility(sourceNodeId, targetNodeId) {
-      const sourceComputed = getPlannerNodeComputed(getPlannerNode(sourceNodeId));
-      const targetComputed = getPlannerNodeComputed(getPlannerNode(targetNodeId));
+    function getConnectionCompatibility(sourceNodeId, targetNodeId, computedMap = null) {
+      const sourceComputed = getPlannerNodeComputed(getPlannerNode(sourceNodeId), computedMap);
+      const targetComputed = getPlannerNodeComputed(getPlannerNode(targetNodeId), computedMap);
       if (!sourceComputed || !targetComputed) return [];
       return sourceComputed.outputs
         .filter((output) => getItemRate(targetComputed.inputs, output.item.id) > 0)
         .map((output) => output.item);
     }
 
-    function totalIncomingRate(targetNodeId, itemId) {
+    function totalIncomingRate(targetNodeId, itemId, computedMap = null) {
       return state.planner.edges
         .filter((edge) => edge.targetNodeId === targetNodeId && edge.itemId === itemId)
         .reduce((total, edge) => {
-          const sourceComputed = getPlannerNodeComputed(getPlannerNode(edge.sourceNodeId));
+          const sourceComputed = getPlannerNodeComputed(
+            getPlannerNode(edge.sourceNodeId),
+            computedMap
+          );
           return total + getItemRate(sourceComputed?.outputs ?? [], itemId);
         }, 0);
     }
 
-    function getConnectionStatus(edge) {
-      const sourceComputed = getPlannerNodeComputed(getPlannerNode(edge.sourceNodeId));
-      const targetComputed = getPlannerNodeComputed(getPlannerNode(edge.targetNodeId));
-      if (!sourceComputed || !targetComputed) return null;
-      const sourceRate = getItemRate(sourceComputed.outputs, edge.itemId);
-      const targetRate = getItemRate(targetComputed.inputs, edge.itemId);
-      const totalSourceRate = totalIncomingRate(edge.targetNodeId, edge.itemId);
-      const delta = totalSourceRate - targetRate;
-      let status = "balanced";
-      if (delta > 0.01) status = "source_surplus";
-      if (delta < -0.01) status = "target_shortage";
-      return { sourceRate, totalSourceRate, targetRate, delta, status };
+    function totalOutgoingDemand(sourceNodeId, itemId, computedMap = null) {
+      return state.planner.edges
+        .filter((edge) => edge.sourceNodeId === sourceNodeId && edge.itemId === itemId)
+        .reduce((total, edge) => {
+          const targetComputed = getPlannerNodeComputed(
+            getPlannerNode(edge.targetNodeId),
+            computedMap
+          );
+          return total + getItemRate(targetComputed?.inputs ?? [], itemId);
+        }, 0);
+    }
+
+    function getConnectionStatus(edge, computedMap = null) {
+      const plannerComputed = computedMap ?? buildPlannerComputedMap();
+      return calculateAllocatedRate(edge, plannerComputed);
     }
 
     function connectionAnchorPoint(fromRect, toRect) {
@@ -843,8 +978,10 @@ SCRIPT = r"""
 
     function renderPlannerNodes() {
       els.plannerCanvas.querySelectorAll(".planner-node").forEach((node) => node.remove());
+      const computedMap = buildPlannerComputedMap();
+      const allocationMap = buildPlannerAllocationMap(computedMap);
       state.planner.nodes.forEach((node) => {
-        const computed = getPlannerNodeComputed(node);
+        const computed = getPlannerNodeComputed(node, computedMap);
         if (!computed) return;
         const nodeEl = document.createElement("article");
         nodeEl.className = `planner-node ${
@@ -876,6 +1013,12 @@ SCRIPT = r"""
               <div class="metric-card wide">
                 <div class="label">Machines Needed</div>
                 <div class="value">${formatAmount(computed.machine_count)}</div>
+              </div>
+              <div class="metric-card">
+                <div class="label">Balance</div>
+                <div class="planner-balance-list">
+                  ${plannerBalanceMarkup(node, computed, allocationMap)}
+                </div>
               </div>
             </div>
             <div class="planner-node-grid">
@@ -1074,6 +1217,8 @@ SCRIPT = r"""
       defs.appendChild(marker);
       els.plannerConnectionsSvg.appendChild(defs);
       const dragState = state.planner.dragConnection;
+      const computedMap = buildPlannerComputedMap();
+      const allocationMap = buildPlannerAllocationMap(computedMap);
       state.planner.edges.forEach((edge) => {
         const sourceEl = els.plannerCanvas.querySelector(
           `[data-node-id="${edge.sourceNodeId}"]`
@@ -1132,7 +1277,7 @@ SCRIPT = r"""
         const control1Y = y1;
         const control2X = x2 - Math.sign(dx || 1) * curve;
         const control2Y = y2;
-        const status = getConnectionStatus(edge);
+        const status = allocationMap.get(edge.id) ?? getConnectionStatus(edge, computedMap);
 
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
         path.setAttribute(
@@ -1159,9 +1304,6 @@ SCRIPT = r"""
         const label = document.createElement("div");
         label.className = `planner-connection-label ${status?.status ?? "balanced"}`;
         label.innerHTML = `
-          <span>
-            ${itemNameById(edge.itemId)} ${itemRateLabel(edge.itemId, status?.delta ?? 0)}
-          </span>
           <button type="button" class="connection-delete-button" data-remove-edge-id="${edge.id}">
             x
           </button>
@@ -1339,8 +1481,25 @@ SCRIPT = r"""
         if (!state.items.some((item) => item.id === edge.itemId)) {
           throw new Error(`Unknown item id: ${edge.itemId}`);
         }
-        const sourceComputed = getPlannerNodeComputed(getImportedNode(edge.sourceNodeId));
-        const targetComputed = getPlannerNodeComputed(getImportedNode(edge.targetNodeId));
+        const sourceNode = getImportedNode(edge.sourceNodeId);
+        const targetNode = getImportedNode(edge.targetNodeId);
+        const sourceRecipe = sourceNode ? recipeById(sourceNode.recipeId) : null;
+        const targetRecipe = targetNode ? recipeById(targetNode.recipeId) : null;
+        if (!sourceNode || !sourceRecipe || !targetNode || !targetRecipe) {
+          throw new Error("Workflow references an unknown node.");
+        }
+        const sourceComputed = scaledRecipeRates(
+          sourceRecipe,
+          sourceNode.targetItemId,
+          sourceNode.targetRatePerMinute,
+          sourceNode.beltCapacity ?? defaultBeltCapacity
+        );
+        const targetComputed = scaledRecipeRates(
+          targetRecipe,
+          targetNode.targetItemId,
+          targetNode.targetRatePerMinute,
+          targetNode.beltCapacity ?? defaultBeltCapacity
+        );
         const compatible = sourceComputed.outputs
           .filter((output) => getItemRate(targetComputed.inputs, output.item.id) > 0)
           .map((output) => output.item.id);

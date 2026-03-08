@@ -15,6 +15,7 @@ from SatisfactoryCalculator.webapp.planner import (
     WorkflowValidationError,
     aggregate_connection_imbalance,
     connection_imbalance,
+    proportional_connection_allocation,
     scale_recipe_for_target,
     workflow_from_payload,
     workflow_to_payload,
@@ -134,6 +135,41 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(result["status"], "balanced")
         self.assertEqual(result["total_source_rate"], 30.0)
         self.assertEqual(result["delta"], 0.0)
+
+    def test_proportional_connection_allocation_splits_multiple_inputs_by_source_ratio(
+        self,
+    ) -> None:
+        result = proportional_connection_allocation(
+            source_rate=2.0,
+            total_incoming_source_rate=5.0,
+            target_rate=10.0,
+            total_outgoing_target_rate=10.0,
+        )
+        self.assertEqual(result["allocated_rate"], 2.0)
+        self.assertEqual(result["incoming_share"], 2.0)
+
+    def test_proportional_connection_allocation_splits_multiple_outputs_by_target_ratio(
+        self,
+    ) -> None:
+        result = proportional_connection_allocation(
+            source_rate=10.0,
+            total_incoming_source_rate=10.0,
+            target_rate=2.0,
+            total_outgoing_target_rate=5.0,
+        )
+        self.assertEqual(result["allocated_rate"], 2.0)
+        self.assertEqual(result["outgoing_share"], 2.0)
+
+    def test_proportional_connection_allocation_caps_multi_output_split_by_total_demand(
+        self,
+    ) -> None:
+        result = proportional_connection_allocation(
+            source_rate=180.0,
+            total_incoming_source_rate=180.0,
+            target_rate=60.0,
+            total_outgoing_target_rate=120.0,
+        )
+        self.assertEqual(result["allocated_rate"], 60.0)
 
     def test_workflow_round_trip(self) -> None:
         workflow = Workflow(

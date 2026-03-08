@@ -377,25 +377,25 @@ CSS = """
     }
     .planner-node {
       position: absolute;
-      width: 280px;
+      width: 200px;
       background: rgba(251, 253, 255, 0.96);
       border: 1px solid var(--line-strong);
-      border-radius: 14px;
-      box-shadow: 0 12px 22px rgba(24, 34, 44, 0.1);
+      border-radius: 12px;
+      box-shadow: 0 8px 18px rgba(24, 34, 44, 0.1);
       overflow: hidden;
       display: flex;
       flex-direction: column;
     }
     .planner-node.selected {
       border-color: var(--accent);
-      box-shadow: 0 0 0 2px rgba(45, 109, 163, 0.12), 0 16px 28px rgba(24, 34, 44, 0.12);
+      box-shadow: 0 0 0 2px rgba(45, 109, 163, 0.12), 0 10px 22px rgba(24, 34, 44, 0.12);
     }
     .planner-node-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
+      gap: 8px;
+      padding: 7px 8px;
       background: linear-gradient(135deg, rgba(31, 77, 116, 0.94), rgba(45, 109, 163, 0.94));
       color: white;
       cursor: grab;
@@ -405,61 +405,104 @@ CSS = """
     }
     .planner-node-title {
       font-weight: 700;
-      font-size: 0.95rem;
+      font-size: 0.78rem;
+      line-height: 1.05;
     }
     .planner-node-building {
-      font-size: 0.76rem;
+      font-size: 0.62rem;
       color: rgba(255, 255, 255, 0.82);
-      margin-top: 2px;
+      margin-top: 1px;
     }
     .planner-node-body {
-      padding: 10px 12px 12px;
+      padding: 7px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 6px;
       overflow: auto;
       flex: 1 1 auto;
     }
     .planner-node-meta {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
+      gap: 6px;
     }
     .planner-node-meta.compact {
       grid-template-columns: 1fr;
     }
     .metric-card {
       background: var(--panel-alt);
-      border-radius: 12px;
-      padding: 8px 10px;
+      border-radius: 10px;
+      padding: 5px 7px;
     }
     .metric-card.wide {
       display: flex;
       align-items: baseline;
       justify-content: space-between;
-      gap: 10px;
+      gap: 6px;
     }
     .metric-card .label {
-      font-size: 0.68rem;
+      font-size: 0.54rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       color: var(--muted);
     }
     .metric-card .value {
-      margin-top: 2px;
       font-weight: 700;
+      font-size: 0.86rem;
+    }
+    .planner-balance-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 4px;
+    }
+    .planner-balance-row {
+      display: grid;
+      grid-template-columns: 24px minmax(0, 1fr) auto;
+      gap: 5px;
+      align-items: center;
+      border-radius: 8px;
+      padding: 4px 6px;
+      background: rgba(255, 255, 255, 0.55);
+      font-size: 0.68rem;
+    }
+    .planner-balance-row.balanced {
+      border: 1px solid rgba(41, 115, 74, 0.2);
+    }
+    .planner-balance-row.source_surplus {
+      border: 1px solid rgba(155, 108, 24, 0.26);
+    }
+    .planner-balance-row.target_shortage {
+      border: 1px solid rgba(163, 71, 45, 0.26);
+    }
+    .planner-balance-side {
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .planner-balance-item {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      font-weight: 600;
+      line-height: 1.05;
+    }
+    .planner-balance-rates {
+      white-space: nowrap;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
     }
     .planner-node-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 8px;
+      gap: 6px;
       align-items: start;
       min-width: 0;
     }
     .planner-io-column {
       border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 8px;
+      border-radius: 10px;
+      padding: 5px;
       background: white;
       min-width: 0;
       overflow: hidden;
@@ -471,26 +514,27 @@ CSS = """
       background: var(--output);
     }
     .planner-io-column h4 {
-      margin: 0 0 6px;
-      font-size: 0.86rem;
+      margin: 0 0 4px;
+      font-size: 0.74rem;
       font-family: Georgia, serif;
+      line-height: 1;
     }
     .mini-list {
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      font-size: 0.84rem;
+      gap: 4px;
+      font-size: 0.72rem;
       min-width: 0;
     }
     .mini-list-row {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       width: 100%;
       border: 1px solid transparent;
-      border-radius: 10px;
+      border-radius: 8px;
       background: rgba(255, 255, 255, 0.55);
-      padding: 6px 7px;
+      padding: 4px 5px;
       text-align: left;
       min-width: 0;
     }
@@ -509,9 +553,9 @@ CSS = """
       box-shadow: inset 3px 0 0 rgba(45, 109, 163, 0.4);
     }
     .planner-port-handle {
-      flex: 0 0 10px;
-      width: 10px;
-      height: 10px;
+      flex: 0 0 8px;
+      width: 8px;
+      height: 8px;
       border-radius: 999px;
       background: var(--line-strong);
     }
@@ -524,11 +568,11 @@ CSS = """
     .planner-port-name {
       display: flex;
       flex-direction: column;
-      gap: 2px;
       min-width: 0;
       flex: 1 1 auto;
       font-weight: 600;
       overflow-wrap: anywhere;
+      line-height: 1.05;
     }
     .planner-port-amount {
       margin-left: auto;
@@ -536,6 +580,15 @@ CSS = """
       font-weight: 500;
       white-space: nowrap;
       flex: 0 0 auto;
+      font-size: 0.68rem;
+    }
+    .node-remove-button {
+      min-height: 0;
+      padding: 4px 8px;
+      font-size: 0.68rem;
+      line-height: 1;
+      border-radius: 999px;
+      box-shadow: none;
     }
     .planner-resize-handle {
       position: absolute;
@@ -671,20 +724,18 @@ CSS = """
     .planner-connection-label {
       position: absolute;
       transform: translate(-50%, -50%);
-      padding: 6px 10px;
+      width: 26px;
+      height: 26px;
+      padding: 0;
       border-radius: 999px;
       border: 1px solid rgba(140, 164, 184, 0.9);
       background: rgba(251, 253, 255, 0.96);
       color: var(--text);
-      font-size: 14px;
-      font-weight: 700;
-      line-height: 1.2;
-      white-space: nowrap;
       box-shadow: 0 8px 18px rgba(24, 34, 44, 0.12);
       pointer-events: auto;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      justify-content: center;
     }
     .planner-connection-label.balanced {
       border-color: rgba(41, 115, 74, 0.35);
@@ -697,8 +748,9 @@ CSS = """
     }
     .connection-delete-button {
       min-height: 0;
-      width: auto;
-      padding: 3px 7px;
+      width: 18px;
+      height: 18px;
+      padding: 0;
       box-shadow: none;
       border-radius: 999px;
       background: rgba(24, 34, 44, 0.08);

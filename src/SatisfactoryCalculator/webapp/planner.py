@@ -165,6 +165,41 @@ def aggregate_connection_imbalance(
     }
 
 
+def proportional_connection_allocation(
+    source_rate: float,
+    total_incoming_source_rate: float,
+    target_rate: float,
+    total_outgoing_target_rate: float,
+) -> dict[str, float | str]:
+    incoming_limited_total = min(total_incoming_source_rate, target_rate)
+    outgoing_limited_total = min(source_rate, total_outgoing_target_rate)
+
+    incoming_share = target_rate
+    if total_incoming_source_rate > 0:
+        incoming_share = incoming_limited_total * (source_rate / total_incoming_source_rate)
+
+    outgoing_share = source_rate
+    if total_outgoing_target_rate > 0:
+        outgoing_share = outgoing_limited_total * (target_rate / total_outgoing_target_rate)
+
+    allocated_rate = min(incoming_share, outgoing_share)
+    delta = source_rate - target_rate
+
+    status = "balanced"
+    if delta > 0.01:
+        status = "source_surplus"
+    elif delta < -0.01:
+        status = "target_shortage"
+
+    return {
+        "status": status,
+        "allocated_rate": allocated_rate,
+        "incoming_share": incoming_share,
+        "outgoing_share": outgoing_share,
+        "delta": delta,
+    }
+
+
 def workflow_to_payload(workflow: Workflow) -> dict[str, object]:
     return {
         "version": WORKFLOW_VERSION,
