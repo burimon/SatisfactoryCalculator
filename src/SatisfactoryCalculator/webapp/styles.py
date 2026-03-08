@@ -300,12 +300,19 @@ CSS = """
       margin-top: 12px;
       border-radius: 16px;
       border: 1px solid var(--line);
+      background: linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9));
+      overflow: hidden;
+    }
+    .planner-canvas {
+      position: absolute;
+      inset: 0;
+      transform-origin: top left;
+      overflow: visible;
       background:
         linear-gradient(rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.88)),
         linear-gradient(90deg, rgba(45, 109, 163, 0.05) 1px, transparent 1px),
         linear-gradient(rgba(45, 109, 163, 0.05) 1px, transparent 1px);
       background-size: auto, 24px 24px, 24px 24px;
-      overflow: hidden;
     }
     .planner-connections-svg {
       position: absolute;
@@ -313,6 +320,15 @@ CSS = """
       width: 100%;
       height: 100%;
       pointer-events: none;
+      overflow: visible;
+      z-index: 1;
+    }
+    .planner-connection-labels {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+      z-index: 3;
     }
     .planner-empty {
       position: absolute;
@@ -323,14 +339,52 @@ CSS = """
       color: var(--muted);
       font-size: 1rem;
     }
+    .planner-add-popup {
+      position: absolute;
+      z-index: 5;
+      width: 320px;
+      max-width: calc(100% - 24px);
+    }
+    .planner-add-popup-card {
+      background: rgba(251, 253, 255, 0.98);
+      border: 1px solid var(--line-strong);
+      border-radius: 16px;
+      padding: 14px;
+      box-shadow: 0 18px 30px rgba(24, 34, 44, 0.16);
+    }
+    .planner-add-popup-card h3 {
+      margin-bottom: 12px;
+      font-size: 1rem;
+      font-family: Georgia, serif;
+    }
+    .planner-target-popup {
+      position: absolute;
+      z-index: 6;
+      width: 220px;
+      max-width: calc(100% - 24px);
+    }
+    .planner-target-popup-card {
+      background: rgba(251, 253, 255, 0.98);
+      border: 1px solid var(--line-strong);
+      border-radius: 14px;
+      padding: 12px;
+      box-shadow: 0 18px 30px rgba(24, 34, 44, 0.16);
+    }
+    .planner-target-popup-card h3 {
+      margin: 0 0 10px;
+      font-size: 0.95rem;
+      font-family: Georgia, serif;
+    }
     .planner-node {
       position: absolute;
       width: 280px;
       background: rgba(251, 253, 255, 0.96);
       border: 1px solid var(--line-strong);
-      border-radius: 16px;
-      box-shadow: 0 16px 28px rgba(24, 34, 44, 0.12);
+      border-radius: 14px;
+      box-shadow: 0 12px 22px rgba(24, 34, 44, 0.1);
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
     .planner-node.selected {
       border-color: var(--accent);
@@ -341,7 +395,7 @@ CSS = """
       justify-content: space-between;
       align-items: center;
       gap: 10px;
-      padding: 12px 14px;
+      padding: 10px 12px;
       background: linear-gradient(135deg, rgba(31, 77, 116, 0.94), rgba(45, 109, 163, 0.94));
       color: white;
       cursor: grab;
@@ -351,48 +405,64 @@ CSS = """
     }
     .planner-node-title {
       font-weight: 700;
+      font-size: 0.95rem;
     }
     .planner-node-building {
-      font-size: 0.82rem;
+      font-size: 0.76rem;
       color: rgba(255, 255, 255, 0.82);
-      margin-top: 4px;
+      margin-top: 2px;
     }
     .planner-node-body {
-      padding: 12px 14px 14px;
+      padding: 10px 12px 12px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
+      overflow: auto;
+      flex: 1 1 auto;
     }
     .planner-node-meta {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
     }
+    .planner-node-meta.compact {
+      grid-template-columns: 1fr;
+    }
     .metric-card {
       background: var(--panel-alt);
       border-radius: 12px;
-      padding: 10px;
+      padding: 8px 10px;
+    }
+    .metric-card.wide {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
     }
     .metric-card .label {
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       color: var(--muted);
     }
     .metric-card .value {
-      margin-top: 4px;
+      margin-top: 2px;
       font-weight: 700;
     }
     .planner-node-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
+      gap: 8px;
+      align-items: start;
+      min-width: 0;
     }
     .planner-io-column {
       border: 1px solid var(--line);
       border-radius: 12px;
-      padding: 10px;
+      padding: 8px;
       background: white;
+      min-width: 0;
+      overflow: hidden;
     }
     .planner-io-column.inputs {
       background: var(--input);
@@ -401,27 +471,109 @@ CSS = """
       background: var(--output);
     }
     .planner-io-column h4 {
-      margin: 0 0 8px;
-      font-size: 0.92rem;
+      margin: 0 0 6px;
+      font-size: 0.86rem;
       font-family: Georgia, serif;
     }
     .mini-list {
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      font-size: 0.9rem;
+      gap: 6px;
+      font-size: 0.84rem;
+      min-width: 0;
     }
     .mini-list-row {
       display: flex;
-      justify-content: space-between;
+      align-items: center;
       gap: 8px;
+      width: 100%;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.55);
+      padding: 6px 7px;
+      text-align: left;
+      min-width: 0;
     }
-    .planner-node-actions,
+    .planner-port {
+      cursor: pointer;
+      box-shadow: none;
+      color: var(--text);
+    }
+    .planner-port:hover {
+      border-color: rgba(45, 109, 163, 0.28);
+      background: rgba(255, 255, 255, 0.82);
+    }
+    .planner-port.is-target {
+      border-color: rgba(45, 109, 163, 0.32);
+      background: rgba(45, 109, 163, 0.03);
+      box-shadow: inset 3px 0 0 rgba(45, 109, 163, 0.4);
+    }
+    .planner-port-handle {
+      flex: 0 0 10px;
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--line-strong);
+    }
+    .planner-port-handle.input {
+      background: #5d8f76;
+    }
+    .planner-port-handle.output {
+      background: #4d7ea8;
+    }
+    .planner-port-name {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      flex: 1 1 auto;
+      font-weight: 600;
+      overflow-wrap: anywhere;
+    }
+    .planner-port-amount {
+      margin-left: auto;
+      color: var(--muted);
+      font-weight: 500;
+      white-space: nowrap;
+      flex: 0 0 auto;
+    }
+    .planner-resize-handle {
+      position: absolute;
+      background: transparent;
+      z-index: 4;
+    }
+    .planner-resize-handle.left,
+    .planner-resize-handle.right {
+      top: 18px;
+      bottom: 18px;
+      width: 10px;
+    }
+    .planner-resize-handle.left {
+      left: -5px;
+      cursor: ew-resize;
+    }
+    .planner-resize-handle.right {
+      right: -5px;
+      cursor: ew-resize;
+    }
+    .planner-resize-handle.top,
+    .planner-resize-handle.bottom {
+      left: 18px;
+      right: 18px;
+      height: 10px;
+    }
+    .planner-resize-handle.top {
+      top: -5px;
+      cursor: ns-resize;
+    }
+    .planner-resize-handle.bottom {
+      bottom: -5px;
+      cursor: ns-resize;
+    }
     .button-row {
       display: flex;
       gap: 10px;
     }
-    .planner-node-actions button,
     .button-row button {
       flex: 1 1 0;
     }
@@ -429,6 +581,29 @@ CSS = """
       color: var(--muted);
       font-size: 0.9rem;
       text-align: right;
+    }
+    .planner-path {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+    .planner-heading-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: flex-end;
+    }
+    .planner-zoom-controls {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .planner-zoom-controls button {
+      min-height: 0;
+      width: auto;
+      padding: 8px 12px;
     }
     .planner-subtext {
       margin-bottom: 0;
@@ -472,13 +647,62 @@ CSS = """
       stroke-width: 3;
       opacity: 0.88;
     }
-    .edge-line.balanced { stroke: var(--ok); }
-    .edge-line.source_surplus { stroke: var(--warn); }
-    .edge-line.target_shortage { stroke: var(--danger); }
+    .edge-preview {
+      stroke-dasharray: 8 6;
+      opacity: 0.7;
+    }
+    .edge-line.balanced {
+      stroke: var(--ok);
+      color: var(--ok);
+    }
+    .edge-line.source_surplus {
+      stroke: var(--warn);
+      color: var(--warn);
+    }
+    .edge-line.target_shortage {
+      stroke: var(--danger);
+      color: var(--danger);
+    }
     .edge-label {
-      font-size: 12px;
+      font-size: 15px;
       font-weight: 700;
       fill: var(--text);
+    }
+    .planner-connection-label {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(140, 164, 184, 0.9);
+      background: rgba(251, 253, 255, 0.96);
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.2;
+      white-space: nowrap;
+      box-shadow: 0 8px 18px rgba(24, 34, 44, 0.12);
+      pointer-events: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .planner-connection-label.balanced {
+      border-color: rgba(41, 115, 74, 0.35);
+    }
+    .planner-connection-label.source_surplus {
+      border-color: rgba(155, 108, 24, 0.42);
+    }
+    .planner-connection-label.target_shortage {
+      border-color: rgba(163, 71, 45, 0.42);
+    }
+    .connection-delete-button {
+      min-height: 0;
+      width: auto;
+      padding: 3px 7px;
+      box-shadow: none;
+      border-radius: 999px;
+      background: rgba(24, 34, 44, 0.08);
+      color: var(--text);
     }
     .node-remove-button,
     .connection-remove-button {
@@ -511,7 +735,6 @@ CSS = """
       .planner-node {
         width: min(280px, calc(100% - 24px));
       }
-      .planner-node-actions,
       .button-row,
       .planner-heading {
         flex-direction: column;

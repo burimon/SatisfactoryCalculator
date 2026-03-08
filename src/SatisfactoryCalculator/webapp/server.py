@@ -5,7 +5,15 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote
 
-from .api import find_recipe_payloads_by_output, get_recipe_payload, list_items, list_recipes
+from .api import (
+    find_recipe_payloads_by_output,
+    get_recipe_payload,
+    get_workflow_payload,
+    list_items,
+    list_recipes,
+    list_workflows,
+    save_workflow,
+)
 from .index_html import HTML
 
 
@@ -21,6 +29,13 @@ class RecipeRequestHandler(BaseHTTPRequestHandler):
             if self.path == "/api/items":
                 self._write_json(list_items())
                 return
+            if self.path == "/api/workflows":
+                self._write_json(list_workflows())
+                return
+            if self.path.startswith("/api/workflows/"):
+                filename = unquote(self.path.removeprefix("/api/workflows/"))
+                self._write_json(get_workflow_payload(filename))
+                return
             if self.path.startswith("/api/recipes/by-output/"):
                 item_id = unquote(self.path.removeprefix("/api/recipes/by-output/"))
                 self._write_json(find_recipe_payloads_by_output(item_id))
@@ -31,6 +46,23 @@ class RecipeRequestHandler(BaseHTTPRequestHandler):
                 return
             self.send_error(HTTPStatus.NOT_FOUND, "Not found")
         except KeyError as exc:
+            self.send_error(HTTPStatus.NOT_FOUND, str(exc))
+        except FileNotFoundError as exc:
+            self.send_error(HTTPStatus.NOT_FOUND, str(exc))
+        except ValueError as exc:
+            self.send_error(HTTPStatus.BAD_REQUEST, str(exc))
+
+    def do_POST(self) -> None:
+        try:
+            if self.path == "/api/workflows":
+                content_length = int(self.headers.get("Content-Length", "0"))
+                payload = json.loads(self.rfile.read(content_length).decode("utf-8"))
+                if not isinstance(payload, dict):
+                    raise ValueError("Workflow payload must be an object")
+                self._write_json(save_workflow(payload))
+                return
+            self.send_error(HTTPStatus.NOT_FOUND, "Not found")
+        except FileNotFoundError as exc:
             self.send_error(HTTPStatus.NOT_FOUND, str(exc))
         except ValueError as exc:
             self.send_error(HTTPStatus.BAD_REQUEST, str(exc))

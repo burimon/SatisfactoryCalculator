@@ -19,6 +19,8 @@ class PlannerNode:
     target_item_id: str
     target_rate_per_minute: float
     belt_capacity: float | None
+    width: float
+    height: float
     x: float
     y: float
 
@@ -33,6 +35,7 @@ class PlannerEdge:
 
 @dataclass(frozen=True, slots=True)
 class Workflow:
+    name: str
     default_belt_capacity: float | None
     nodes: tuple[PlannerNode, ...]
     edges: tuple[PlannerEdge, ...]
@@ -47,13 +50,18 @@ class ScaledRecipe(TypedDict):
     outputs: dict[str, float]
 
 
-def recipe_output_rate_per_minute(recipe: Recipe, item_id: str) -> float:
+def recipe_entry_rate_per_minute(recipe: Recipe, item_id: str) -> float:
     for item, amount in recipe.outputs.items():
         if item.value == item_id:
             if item is Item.POWER:
                 return amount
             return amount * 60 / recipe.duration_seconds
-    raise WorkflowValidationError(f"Recipe {recipe.id} does not produce {item_id}")
+    for item, amount in recipe.inputs.items():
+        if item.value == item_id:
+            if item is Item.POWER:
+                return amount
+            return amount * 60 / recipe.duration_seconds
+    raise WorkflowValidationError(f"Recipe {recipe.id} does not use {item_id}")
 
 
 def scale_recipe_for_target(
@@ -62,7 +70,7 @@ def scale_recipe_for_target(
     target_rate_per_minute: float,
     belt_capacity: float | None = None,
 ) -> ScaledRecipe:
-    base_rate = recipe_output_rate_per_minute(recipe, target_item_id)
+    base_rate = recipe_entry_rate_per_minute(recipe, target_item_id)
     per_machine_rate = _per_machine_rate(
         target_item_id=target_item_id,
         base_rate=base_rate,
@@ -125,9 +133,29 @@ def connection_imbalance(
     }
 
 
+def aggregate_connection_imbalance(
+    source_rates: list[float],
+    target_rate: float,
+) -> dict[str, float | str]:
+    total_source_rate = sum(source_rates)
+    delta = total_source_rate - target_rate
+    status = "balanced"
+    if delta > 0.01:
+        status = "source_surplus"
+    elif delta < -0.01:
+        status = "target_shortage"
+    return {
+        "status": status,
+        "total_source_rate": total_source_rate,
+        "target_rate": target_rate,
+        "delta": delta,
+    }
+
+
 def workflow_to_payload(workflow: Workflow) -> dict[str, object]:
     return {
         "version": WORKFLOW_VERSION,
+        "name": workflow.name,
         "defaultBeltCapacity": workflow.default_belt_capacity,
         "nodes": [
             {
@@ -136,6 +164,8 @@ def workflow_to_payload(workflow: Workflow) -> dict[str, object]:
                 "targetItemId": node.target_item_id,
                 "targetRatePerMinute": node.target_rate_per_minute,
                 "beltCapacity": node.belt_capacity,
+                "width": node.width,
+                "height": node.height,
                 "x": node.x,
                 "y": node.y,
             }
@@ -161,6 +191,8 @@ def workflow_from_payload(payload: dict[str, object]) -> Workflow:
     edges_payload = payload.get("edges")
     if not isinstance(nodes_payload, list) or not isinstance(edges_payload, list):
         raise WorkflowValidationError("Workflow must contain nodes and edges arrays")
+    raw_name = payload.get("name", "")
+    workflow_name = raw_name if isinstance(raw_name, str) else str(raw_name)
     parsed_default_belt_capacity = _parse_optional_float(payload.get("defaultBeltCapacity"))
 
     nodes = tuple(_parse_node_payload(node_payload) for node_payload in nodes_payload)
@@ -176,9 +208,11 @@ def workflow_from_payload(payload: dict[str, object]) -> Workflow:
             Item(node.target_item_id)
         except ValueError as exc:
             raise WorkflowValidationError(f"Unknown item id: {node.target_item_id}") from exc
-        if all(item.value != node.target_item_id for item in recipe.outputs):
+        if all(item.value != node.target_item_id for item in recipe.outputs) and all(
+            item.value != node.target_item_id for item in recipe.inputs
+        ):
             raise WorkflowValidationError(
-                f"Recipe {node.recipe_id} does not produce {node.target_item_id}"
+                f"Recipe {node.recipe_id} does not use {node.target_item_id}"
             )
 
     edges = tuple(_parse_edge_payload(edge_payload) for edge_payload in edges_payload)
@@ -205,6 +239,7 @@ def workflow_from_payload(payload: dict[str, object]) -> Workflow:
             )
 
     return Workflow(
+        name=workflow_name,
         default_belt_capacity=parsed_default_belt_capacity,
         nodes=nodes,
         edges=edges,
@@ -221,6 +256,8 @@ def _parse_node_payload(payload: object) -> PlannerNode:
             target_item_id=str(payload["targetItemId"]),
             target_rate_per_minute=float(payload["targetRatePerMinute"]),
             belt_capacity=_parse_optional_float(payload.get("beltCapacity")),
+            width=float(payload.get("width", 280.0)),
+            height=float(payload.get("height", 210.0)),
             x=float(payload["x"]),
             y=float(payload["y"]),
         )

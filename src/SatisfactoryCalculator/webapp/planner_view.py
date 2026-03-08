@@ -11,7 +11,7 @@ PLANNER_VIEW = """
           <div class="planner-section">
             <h3>Add Node</h3>
             <div class="field">
-              <label for="planner-default-belt">Default Belt Limit</label>
+              <label for="planner-default-belt">Global Belt Limit</label>
               <select id="planner-default-belt"></select>
             </div>
             <div class="field">
@@ -31,28 +31,26 @@ PLANNER_VIEW = """
           </div>
 
           <div class="planner-section">
-            <h3>Connections</h3>
-            <div class="field">
-              <label for="connection-source">Source Node</label>
-              <select id="connection-source"></select>
-            </div>
-            <div class="field">
-              <label for="connection-target">Target Node</label>
-              <select id="connection-target"></select>
-            </div>
-            <div class="field">
-              <label for="connection-item">Item</label>
-              <select id="connection-item"></select>
-            </div>
-            <div class="stack-gap">
-              <button id="add-connection-button" type="button">Connect Nodes</button>
-            </div>
-            <div id="planner-connections" class="planner-connection-list"></div>
-          </div>
-
-          <div class="planner-section">
             <h3>Workflow</h3>
+            <div class="field">
+              <label for="planner-workflow-name">Workflow Name</label>
+              <input
+                id="planner-workflow-name"
+                type="text"
+                maxlength="80"
+                placeholder="My factory plan"
+                autocomplete="off"
+              >
+            </div>
+            <div class="field">
+              <label for="planner-saved-workflows">Saved Workflows</label>
+              <select id="planner-saved-workflows"></select>
+            </div>
+            <div id="planner-workflow-directory" class="planner-path"></div>
             <div class="button-row">
+              <button id="new-workflow-button" type="button" class="secondary-button">
+                New Plan
+              </button>
               <button id="export-workflow-button" type="button">Export JSON</button>
               <button
                 id="import-workflow-button"
@@ -62,7 +60,11 @@ PLANNER_VIEW = """
                 Import JSON
               </button>
             </div>
-            <input id="import-workflow-input" type="file" accept="application/json" hidden>
+            <div class="stack-gap">
+              <button id="planner-refresh-workflows" type="button" class="secondary-button">
+                Refresh Saved Workflows
+              </button>
+            </div>
           </div>
         </section>
 
@@ -74,10 +76,73 @@ PLANNER_VIEW = """
                 Drag nodes to arrange the flow. Edit target output rates per minute on each recipe.
               </p>
             </div>
-            <div id="planner-summary" class="planner-summary">No nodes yet.</div>
+            <div class="planner-heading-actions">
+              <div class="planner-zoom-controls">
+                <button id="planner-zoom-out" type="button" class="secondary-button">-</button>
+                <button id="planner-zoom-reset" type="button" class="secondary-button">100%</button>
+                <button id="planner-zoom-in" type="button" class="secondary-button">+</button>
+              </div>
+              <div id="planner-summary" class="planner-summary">No nodes yet.</div>
+            </div>
           </div>
           <div id="planner-workspace" class="planner-workspace">
-            <svg id="planner-connections-svg" class="planner-connections-svg"></svg>
+            <div id="planner-canvas" class="planner-canvas">
+              <svg id="planner-connections-svg" class="planner-connections-svg"></svg>
+            </div>
+            <div id="planner-connection-labels" class="planner-connection-labels"></div>
+            <div id="planner-target-popup" class="planner-target-popup" hidden>
+              <div class="planner-target-popup-card">
+                <h3 id="planner-target-popup-title">Target</h3>
+                <div class="field">
+                  <label for="planner-target-popup-rate">Amount</label>
+                  <input
+                    id="planner-target-popup-rate"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    autocomplete="off"
+                  >
+                </div>
+                <div class="button-row">
+                  <button id="planner-target-popup-save" type="button">Apply</button>
+                  <button
+                    id="planner-target-popup-cancel"
+                    type="button"
+                    class="secondary-button"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div id="planner-add-popup" class="planner-add-popup" hidden>
+              <div class="planner-add-popup-card">
+                <h3>Add Node</h3>
+                <div class="field">
+                  <label for="planner-popup-output-input">Output Item</label>
+                  <input
+                    id="planner-popup-output-input"
+                    list="planner-popup-output-options"
+                    type="search"
+                    autocomplete="off"
+                  >
+                  <datalist id="planner-popup-output-options"></datalist>
+                </div>
+                <div class="button-row">
+                  <button id="planner-popup-search" type="button">Find Recipes</button>
+                  <button id="planner-popup-cancel" type="button" class="secondary-button">
+                    Cancel
+                  </button>
+                </div>
+                <div class="field">
+                  <label for="planner-popup-recipe">Recipe</label>
+                  <select id="planner-popup-recipe"></select>
+                </div>
+                <div class="button-row">
+                  <button id="planner-popup-confirm" type="button">Add Node</button>
+                </div>
+              </div>
+            </div>
             <div id="planner-empty" class="planner-empty">
               Add a node from an output item to start a workflow.
             </div>

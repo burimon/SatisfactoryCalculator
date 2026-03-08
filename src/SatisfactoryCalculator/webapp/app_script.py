@@ -2,7 +2,10 @@ SCRIPT = r"""
     const WORKFLOW_VERSION = 1;
     const POWER_ITEM_ID = "power";
     const BELT_CAPACITY_OPTIONS = [60, 120, 270, 480, 780];
-
+    const DEFAULT_NODE_WIDTH = 280;
+    const DEFAULT_NODE_HEIGHT = 210;
+    const MIN_NODE_WIDTH = 220;
+    const MIN_NODE_HEIGHT = 160;
     const state = {
       mode: "browser",
       recipes: [],
@@ -12,13 +15,47 @@ SCRIPT = r"""
       debug: false,
       outputItemId: null,
       planner: {
+        workflowName: "Untitled Workflow",
+        workflowDirectory: "",
+        availableWorkflows: [],
+        selectedWorkflowFilename: "",
         selectedOutputItemId: null,
         defaultBeltCapacity: 60,
         candidateRecipes: [],
+        popup: {
+          visible: false,
+          canvasX: 0,
+          canvasY: 0,
+          screenX: 12,
+          screenY: 12,
+          outputItemId: null,
+          candidateRecipes: [],
+          selectedRecipeId: null
+        },
+        targetPopup: {
+          visible: false,
+          nodeId: null,
+          itemId: null,
+          screenX: 12,
+          screenY: 12
+        },
+        dragConnection: {
+          active: false,
+          sourceNodeId: null,
+          itemId: null,
+          startX: 0,
+          startY: 0,
+          currentX: 0,
+          currentY: 0,
+          validTargetNodeId: null
+        },
         nodes: [],
         edges: [],
+        panX: 0,
+        panY: 0,
+        zoom: 1,
         selectedNodeId: null,
-        connectSourceNodeId: null,
+        connectSourcePort: null,
         nextNodeNumber: 1,
         nextEdgeNumber: 1
       }
@@ -44,22 +81,38 @@ SCRIPT = r"""
       searchButton: document.getElementById("search-button"),
       resultsList: document.getElementById("results-list"),
       plannerDefaultBelt: document.getElementById("planner-default-belt"),
+      plannerWorkflowName: document.getElementById("planner-workflow-name"),
+      plannerSavedWorkflows: document.getElementById("planner-saved-workflows"),
+      plannerWorkflowDirectory: document.getElementById("planner-workflow-directory"),
+      plannerRefreshWorkflows: document.getElementById("planner-refresh-workflows"),
+      newWorkflowButton: document.getElementById("new-workflow-button"),
       plannerOutputInput: document.getElementById("planner-output-input"),
       plannerOutputOptions: document.getElementById("planner-output-options"),
       plannerSearchButton: document.getElementById("planner-search-button"),
       plannerRecipeResults: document.getElementById("planner-recipe-results"),
-      connectionSource: document.getElementById("connection-source"),
-      connectionTarget: document.getElementById("connection-target"),
-      connectionItem: document.getElementById("connection-item"),
-      addConnectionButton: document.getElementById("add-connection-button"),
-      plannerConnections: document.getElementById("planner-connections"),
       plannerWorkspace: document.getElementById("planner-workspace"),
+      plannerCanvas: document.getElementById("planner-canvas"),
       plannerConnectionsSvg: document.getElementById("planner-connections-svg"),
+      plannerConnectionLabels: document.getElementById("planner-connection-labels"),
+      plannerTargetPopup: document.getElementById("planner-target-popup"),
+      plannerTargetPopupTitle: document.getElementById("planner-target-popup-title"),
+      plannerTargetPopupRate: document.getElementById("planner-target-popup-rate"),
+      plannerTargetPopupSave: document.getElementById("planner-target-popup-save"),
+      plannerTargetPopupCancel: document.getElementById("planner-target-popup-cancel"),
+      plannerAddPopup: document.getElementById("planner-add-popup"),
+      plannerPopupOutputInput: document.getElementById("planner-popup-output-input"),
+      plannerPopupOutputOptions: document.getElementById("planner-popup-output-options"),
+      plannerPopupSearch: document.getElementById("planner-popup-search"),
+      plannerPopupRecipe: document.getElementById("planner-popup-recipe"),
+      plannerPopupConfirm: document.getElementById("planner-popup-confirm"),
+      plannerPopupCancel: document.getElementById("planner-popup-cancel"),
       plannerEmpty: document.getElementById("planner-empty"),
       plannerSummary: document.getElementById("planner-summary"),
+      plannerZoomOut: document.getElementById("planner-zoom-out"),
+      plannerZoomReset: document.getElementById("planner-zoom-reset"),
+      plannerZoomIn: document.getElementById("planner-zoom-in"),
       exportWorkflowButton: document.getElementById("export-workflow-button"),
       importWorkflowButton: document.getElementById("import-workflow-button"),
-      importWorkflowInput: document.getElementById("import-workflow-input"),
       status: document.getElementById("status")
     };
 
@@ -81,19 +134,19 @@ SCRIPT = r"""
       return itemId === POWER_ITEM_ID;
     }
 
-    function beltCapacityLabel(capacity) {
-      if (capacity === null) {
-        return "Unlimited";
-      }
-      const beltMk = BELT_CAPACITY_OPTIONS.indexOf(capacity) + 1;
-      return `Mk ${beltMk} (${capacity}/min)`;
-    }
-
     function perMachineRate(targetItemId, baseRate, beltCapacity) {
       if (isPowerItem(targetItemId) || beltCapacity === null) {
         return baseRate;
       }
       return Math.min(baseRate, beltCapacity);
+    }
+
+    function defaultBeltLabel(capacity) {
+      if (capacity === null) {
+        return "Unlimited";
+      }
+      const beltMk = BELT_CAPACITY_OPTIONS.indexOf(capacity) + 1;
+      return `Mk ${beltMk} (${capacity}/min)`;
     }
 
     function scaledAmount(amount, duration, rateMode) {
@@ -109,13 +162,91 @@ SCRIPT = r"""
     }
 
     function plannerEntryAmount(entry) {
-      return isPowerItem(entry.item.id)
-        ? `${formatAmount(entry.amount_per_minute)} MW`
-        : `${formatAmount(entry.amount_per_minute)}/min`;
+      return formatAmount(entry.amount_per_minute);
     }
 
     function itemRateLabel(itemId, amount) {
-      return isPowerItem(itemId) ? `${formatAmount(amount)} MW` : `${formatAmount(amount)}/min`;
+      const prefix = amount > 0.01 ? "+" : "";
+      return `${prefix}${formatAmount(amount)}`;
+    }
+
+    function clampZoom(zoom) {
+      return Math.min(Math.max(zoom, 0.5), 2.5);
+    }
+
+    function clientToCanvasPoint(clientX, clientY) {
+      const rect = els.plannerWorkspace.getBoundingClientRect();
+      return {
+        x: (clientX - rect.left - state.planner.panX) / state.planner.zoom,
+        y: (clientY - rect.top - state.planner.panY) / state.planner.zoom
+      };
+    }
+
+    function selectedWorkflowRecord() {
+      return state.planner.availableWorkflows.find(
+        (workflow) => workflow.filename === state.planner.selectedWorkflowFilename
+      ) ?? null;
+    }
+
+    function closePlannerPopup() {
+      state.planner.popup.visible = false;
+      state.planner.popup.outputItemId = null;
+      state.planner.popup.candidateRecipes = [];
+      state.planner.popup.selectedRecipeId = null;
+      renderPlannerPopup();
+    }
+
+    function openTargetPopup(nodeId, itemId, clientX, clientY) {
+      const node = getPlannerNode(nodeId);
+      if (!node) return;
+      const workspaceRect = els.plannerWorkspace.getBoundingClientRect();
+      state.planner.targetPopup.visible = true;
+      state.planner.targetPopup.nodeId = nodeId;
+      state.planner.targetPopup.itemId = itemId;
+      state.planner.targetPopup.screenX = Math.max(12, clientX - workspaceRect.left);
+      state.planner.targetPopup.screenY = Math.max(12, clientY - workspaceRect.top);
+      renderTargetPopup();
+      els.plannerTargetPopupRate.focus();
+      els.plannerTargetPopupRate.select();
+    }
+
+    function closeTargetPopup() {
+      state.planner.targetPopup.visible = false;
+      state.planner.targetPopup.nodeId = null;
+      state.planner.targetPopup.itemId = null;
+      renderTargetPopup();
+    }
+
+    function resetPlannerWorkflow() {
+      state.planner.workflowName = "Blank";
+      state.planner.nodes = [];
+      state.planner.edges = [];
+      state.planner.selectedNodeId = null;
+      state.planner.connectSourcePort = null;
+      state.planner.selectedWorkflowFilename = "";
+      state.planner.nextNodeNumber = 1;
+      state.planner.nextEdgeNumber = 1;
+      closePlannerPopup();
+      closeTargetPopup();
+      renderOptions();
+      renderPlanner();
+      setMode("planner");
+      els.status.textContent = "Started a new blank plan.";
+    }
+
+    function openPlannerPopup(clientX, clientY) {
+      const canvasPoint = clientToCanvasPoint(clientX, clientY);
+      const workspaceRect = els.plannerWorkspace.getBoundingClientRect();
+      state.planner.popup.visible = true;
+      state.planner.popup.canvasX = canvasPoint.x;
+      state.planner.popup.canvasY = canvasPoint.y;
+      state.planner.popup.screenX = Math.max(12, clientX - workspaceRect.left);
+      state.planner.popup.screenY = Math.max(12, clientY - workspaceRect.top);
+      state.planner.popup.outputItemId = null;
+      state.planner.popup.candidateRecipes = [];
+      state.planner.popup.selectedRecipeId = null;
+      renderPlannerPopup();
+      els.plannerPopupOutputInput.focus();
     }
 
     function titleCase(value) {
@@ -158,17 +289,22 @@ SCRIPT = r"""
       return id;
     }
 
-    function recipeOutputRatePerMinute(recipe, itemId) {
+    function recipeEntryRatePerMinute(recipe, itemId) {
       const output = recipe.outputs.find((entry) => entry.item.id === itemId);
-      if (!output) return null;
-      if (isPowerItem(itemId)) return output.amount;
-      return (output.amount * 60) / recipe.duration_seconds;
+      if (output) {
+        return isPowerItem(itemId) ? output.amount : (output.amount * 60) / recipe.duration_seconds;
+      }
+      const input = recipe.inputs.find((entry) => entry.item.id === itemId);
+      if (input) {
+        return isPowerItem(itemId) ? input.amount : (input.amount * 60) / recipe.duration_seconds;
+      }
+      return null;
     }
 
     function scaledRecipeRates(recipe, targetItemId, targetRatePerMinute, beltCapacity = null) {
-      const targetBaseRate = recipeOutputRatePerMinute(recipe, targetItemId);
+      const targetBaseRate = recipeEntryRatePerMinute(recipe, targetItemId);
       if (!targetBaseRate) {
-        throw new Error(`Recipe ${recipe.id} does not produce ${targetItemId}`);
+        throw new Error(`Recipe ${recipe.id} does not use ${targetItemId}`);
       }
       const machineRate = perMachineRate(targetItemId, targetBaseRate, beltCapacity);
       const machineCount = machineRate === 0 ? 0 : targetRatePerMinute / machineRate;
@@ -203,7 +339,7 @@ SCRIPT = r"""
           recipe,
           node.targetItemId,
           node.targetRatePerMinute,
-          node.beltCapacity ?? null
+          state.planner.defaultBeltCapacity ?? null
         )
       };
     }
@@ -221,17 +357,70 @@ SCRIPT = r"""
         .map((output) => output.item);
     }
 
+    function totalIncomingRate(targetNodeId, itemId) {
+      return state.planner.edges
+        .filter((edge) => edge.targetNodeId === targetNodeId && edge.itemId === itemId)
+        .reduce((total, edge) => {
+          const sourceComputed = getPlannerNodeComputed(getPlannerNode(edge.sourceNodeId));
+          return total + getItemRate(sourceComputed?.outputs ?? [], itemId);
+        }, 0);
+    }
+
     function getConnectionStatus(edge) {
       const sourceComputed = getPlannerNodeComputed(getPlannerNode(edge.sourceNodeId));
       const targetComputed = getPlannerNodeComputed(getPlannerNode(edge.targetNodeId));
       if (!sourceComputed || !targetComputed) return null;
       const sourceRate = getItemRate(sourceComputed.outputs, edge.itemId);
       const targetRate = getItemRate(targetComputed.inputs, edge.itemId);
-      const delta = sourceRate - targetRate;
+      const totalSourceRate = totalIncomingRate(edge.targetNodeId, edge.itemId);
+      const delta = totalSourceRate - targetRate;
       let status = "balanced";
       if (delta > 0.01) status = "source_surplus";
       if (delta < -0.01) status = "target_shortage";
-      return { sourceRate, targetRate, delta, status };
+      return { sourceRate, totalSourceRate, targetRate, delta, status };
+    }
+
+    function connectionAnchorPoint(fromRect, toRect) {
+      const fromCenterX = fromRect.x + fromRect.width / 2;
+      const fromCenterY = fromRect.y + fromRect.height / 2;
+      const toCenterX = toRect.x + toRect.width / 2;
+      const toCenterY = toRect.y + toRect.height / 2;
+      const dx = toCenterX - fromCenterX;
+      const dy = toCenterY - fromCenterY;
+      const halfWidth = fromRect.width / 2;
+      const halfHeight = fromRect.height / 2;
+
+      if (Math.abs(dx) < 0.0001 && Math.abs(dy) < 0.0001) {
+        return { x: fromCenterX + halfWidth, y: fromCenterY };
+      }
+
+      const scaleX = halfWidth / Math.max(Math.abs(dx), 0.0001);
+      const scaleY = halfHeight / Math.max(Math.abs(dy), 0.0001);
+      const scale = Math.min(scaleX, scaleY);
+
+      return {
+        x: fromCenterX + dx * scale,
+        y: fromCenterY + dy * scale
+      };
+    }
+
+    function portAnchorPoint(portEl, side) {
+      const rect = portEl.getBoundingClientRect();
+      const clientX = side === "left" ? rect.left : rect.right;
+      const clientY = rect.top + rect.height / 2;
+      return clientToCanvasPoint(clientX, clientY);
+    }
+
+    function dragTargetFromClientPoint(clientX, clientY, itemId, sourceNodeId) {
+      const element = document.elementFromPoint(clientX, clientY);
+      const port = element?.closest?.('[data-port-type="input"]');
+      if (!port) return null;
+      if (port.dataset.portItemId !== itemId) return null;
+      if (port.dataset.portNodeId === sourceNodeId) return null;
+      return {
+        nodeId: port.dataset.portNodeId,
+        itemId: port.dataset.portItemId
+      };
     }
 
     function renderOptions() {
@@ -271,7 +460,7 @@ SCRIPT = r"""
             value="${capacity}"
             ${state.planner.defaultBeltCapacity === capacity ? "selected" : ""}
           >
-            ${beltCapacityLabel(capacity)}
+            ${defaultBeltLabel(capacity)}
           </option>
         `).join("")}
       `;
@@ -279,6 +468,33 @@ SCRIPT = r"""
         state.planner.defaultBeltCapacity === null
           ? ""
           : String(state.planner.defaultBeltCapacity);
+      els.plannerWorkflowName.value = state.planner.workflowName;
+      const workflowOptions = state.planner.availableWorkflows.length
+        ? state.planner.availableWorkflows.map((workflow) => `
+            <option
+              value="${workflow.filename}"
+              ${workflow.filename === state.planner.selectedWorkflowFilename ? "selected" : ""}
+            >
+              ${workflow.name}
+            </option>
+          `).join("")
+        : '<option value="">No saved workflows yet</option>';
+      els.plannerSavedWorkflows.innerHTML = workflowOptions;
+      if (
+        state.planner.selectedWorkflowFilename &&
+        state.planner.availableWorkflows.some(
+          (workflow) => workflow.filename === state.planner.selectedWorkflowFilename
+        )
+      ) {
+        els.plannerSavedWorkflows.value = state.planner.selectedWorkflowFilename;
+      } else {
+        els.plannerSavedWorkflows.value = state.planner.availableWorkflows[0]?.filename ?? "";
+      }
+      els.plannerSavedWorkflows.disabled = state.planner.availableWorkflows.length === 0;
+      els.plannerWorkflowDirectory.textContent = state.planner.workflowDirectory
+        ? `Workflow library: ${state.planner.workflowDirectory}`
+        : "Workflow library unavailable.";
+      els.plannerPopupOutputOptions.innerHTML = els.plannerOutputOptions.innerHTML;
     }
 
     function createRow(entry, verb, duration) {
@@ -322,6 +538,42 @@ SCRIPT = r"""
         throw new Error(`Request failed: ${response.status}`);
       }
       return response.json();
+    }
+
+    async function postJson(path, payload) {
+      const response = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || `Request failed: ${response.status}`);
+      }
+      return response.json();
+    }
+
+    async function refreshWorkflows(preferredFilename = null) {
+      const payload = await fetchJson("/api/workflows");
+      state.planner.workflowDirectory = payload.directory ?? "";
+      state.planner.availableWorkflows = Array.isArray(payload.files) ? payload.files : [];
+      if (
+        preferredFilename &&
+        state.planner.availableWorkflows.some((workflow) => workflow.filename === preferredFilename)
+      ) {
+        state.planner.selectedWorkflowFilename = preferredFilename;
+      } else if (
+        state.planner.selectedWorkflowFilename &&
+        state.planner.availableWorkflows.some(
+          (workflow) => workflow.filename === state.planner.selectedWorkflowFilename
+        )
+      ) {
+        state.planner.selectedWorkflowFilename = state.planner.selectedWorkflowFilename;
+      } else {
+        state.planner.selectedWorkflowFilename =
+          state.planner.availableWorkflows[0]?.filename ?? "";
+      }
+      renderOptions();
     }
 
     async function loadRecipe(recipeId) {
@@ -396,9 +648,13 @@ SCRIPT = r"""
     }
 
     function addPlannerNode(recipeId, targetItemId) {
+      addPlannerNodeAt(recipeId, targetItemId, null, null);
+    }
+
+    function addPlannerNodeAt(recipeId, targetItemId, canvasX, canvasY) {
       const recipe = recipeById(recipeId);
       if (!recipe) return;
-      const targetRatePerMinute = recipeOutputRatePerMinute(recipe, targetItemId) ?? 0;
+      const targetRatePerMinute = recipeEntryRatePerMinute(recipe, targetItemId) ?? 0;
       const columnOffset = state.planner.nodes.length % 3;
       const rowOffset = Math.floor(state.planner.nodes.length / 3);
       const node = {
@@ -406,12 +662,15 @@ SCRIPT = r"""
         recipeId,
         targetItemId,
         targetRatePerMinute,
-        beltCapacity: isPowerItem(targetItemId) ? null : state.planner.defaultBeltCapacity,
-        x: 28 + columnOffset * 300,
-        y: 28 + rowOffset * 260
+        beltCapacity: null,
+        x: canvasX ?? 28 + columnOffset * 300,
+        y: canvasY ?? 28 + rowOffset * 260,
+        width: DEFAULT_NODE_WIDTH,
+        height: DEFAULT_NODE_HEIGHT
       };
       state.planner.nodes.push(node);
       state.planner.selectedNodeId = node.id;
+      closePlannerPopup();
       renderPlanner();
       els.status.textContent = `Added planner node for ${recipe.name}.`;
     }
@@ -431,9 +690,6 @@ SCRIPT = r"""
       const node = getPlannerNode(nodeId);
       if (!node) return;
       Object.assign(node, changes);
-      if (isPowerItem(node.targetItemId)) {
-        node.beltCapacity = null;
-      }
       renderPlanner();
     }
 
@@ -496,110 +752,87 @@ SCRIPT = r"""
       });
     }
 
-    function renderPlannerConnectionOptions() {
-      const nodes = state.planner.nodes;
-      const buildOptions = (includePrompt) => {
-        const options = [];
-        if (includePrompt) {
-          options.push('<option value="">Choose node</option>');
-        }
-        nodes.forEach((node) => {
-          const recipe = recipeById(node.recipeId);
-          options.push(
-            `<option value="${node.id}">${recipe?.name ?? node.recipeId} (${node.id})</option>`
-          );
-        });
-        return options.join("");
-      };
-      const previousSource = els.connectionSource.value;
-      const previousTarget = els.connectionTarget.value;
-      els.connectionSource.innerHTML = buildOptions(true);
-      els.connectionTarget.innerHTML = buildOptions(true);
-      els.connectionSource.value = nodes.some((node) => node.id === previousSource)
-        ? previousSource
-        : "";
-      els.connectionTarget.value = nodes.some((node) => node.id === previousTarget)
-        ? previousTarget
-        : "";
-      refreshConnectionItemOptions();
-    }
-
-    function refreshConnectionItemOptions() {
-      const compatibleItems = getConnectionCompatibility(
-        els.connectionSource.value,
-        els.connectionTarget.value
+    async function findPlannerPopupRecipes() {
+      const item = state.items.find(
+        (candidate) => candidate.name === els.plannerPopupOutputInput.value
       );
-      els.connectionItem.innerHTML = compatibleItems.length
-        ? compatibleItems.map((item) => `<option value="${item.id}">${item.name}</option>`).join("")
-        : '<option value="">No shared items</option>';
+      if (!item) {
+        els.status.textContent = "Choose a valid output item for the new node.";
+        return;
+      }
+      state.planner.popup.outputItemId = item.id;
+      state.planner.popup.candidateRecipes = await fetchJson(`/api/recipes/by-output/${item.id}`);
+      state.planner.popup.selectedRecipeId = state.planner.popup.candidateRecipes[0]?.id ?? null;
+      renderPlannerPopup();
     }
 
-    function renderPlannerConnectionsList() {
-      els.plannerConnections.innerHTML = state.planner.edges.length
-        ? state.planner.edges.map((edge) => {
-            const source = getPlannerNode(edge.sourceNodeId);
-            const target = getPlannerNode(edge.targetNodeId);
-            const sourceRecipe = recipeById(source?.recipeId ?? "");
-            const targetRecipe = recipeById(target?.recipeId ?? "");
-            const status = getConnectionStatus(edge);
-            const statusLabel = {
-              balanced: "Balanced",
-              source_surplus: "Source surplus",
-              target_shortage: "Target shortage"
-            }[status?.status ?? "balanced"];
-            const pillClass = {
-              balanced: "planner-status-balanced",
-              source_surplus: "planner-status-source-surplus",
-              target_shortage: "planner-status-target-shortage"
-            }[status?.status ?? "balanced"];
+    function renderPlannerPopup() {
+      if (!state.planner.popup.visible) {
+        els.plannerAddPopup.hidden = true;
+        return;
+      }
+      els.plannerAddPopup.hidden = false;
+      els.plannerAddPopup.style.left = `${state.planner.popup.screenX}px`;
+      els.plannerAddPopup.style.top = `${state.planner.popup.screenY}px`;
+      const selectedItem = state.items.find(
+        (item) => item.id === state.planner.popup.outputItemId
+      );
+      els.plannerPopupOutputInput.value = selectedItem?.name ?? "";
+      els.plannerPopupRecipe.innerHTML = state.planner.popup.candidateRecipes.length
+        ? state.planner.popup.candidateRecipes.map((recipe) => `
+            <option
+              value="${recipe.id}"
+              ${recipe.id === state.planner.popup.selectedRecipeId ? "selected" : ""}
+            >
+              ${recipe.name} | ${titleCase(recipe.building || "unknown")}
+            </option>
+          `).join("")
+        : '<option value="">Select output and find recipes</option>';
+      els.plannerPopupRecipe.value = state.planner.popup.selectedRecipeId ?? "";
+    }
+
+    function renderTargetPopup() {
+      if (!state.planner.targetPopup.visible) {
+        els.plannerTargetPopup.hidden = true;
+        return;
+      }
+      const node = getPlannerNode(state.planner.targetPopup.nodeId);
+      if (!node) {
+        closeTargetPopup();
+        return;
+      }
+      els.plannerTargetPopup.hidden = false;
+      els.plannerTargetPopup.style.left = `${state.planner.targetPopup.screenX}px`;
+      els.plannerTargetPopup.style.top = `${state.planner.targetPopup.screenY}px`;
+      els.plannerTargetPopupTitle.textContent = itemNameById(state.planner.targetPopup.itemId);
+      els.plannerTargetPopupRate.value = formatAmount(node.targetRatePerMinute);
+    }
+
+    function plannerIoMarkup(node, computed, entries, portType) {
+      return entries.length
+        ? entries.map((entry) => {
+            const isTarget = entry.item.id === node.targetItemId;
             return `
-              <div class="planner-connection-card">
-                <div class="planner-connection-top">
-                  <strong>${itemNameById(edge.itemId)}</strong>
-                  <span class="planner-status-pill ${pillClass}">${statusLabel}</span>
-                </div>
-                <div class="planner-connection-meta">
-                  ${sourceRecipe?.name ?? edge.sourceNodeId}
-                  -> ${targetRecipe?.name ?? edge.targetNodeId}
-                </div>
-                <div class="planner-connection-rates">
-                  Source ${itemRateLabel(edge.itemId, status?.sourceRate ?? 0)}
-                  | Target ${itemRateLabel(edge.itemId, status?.targetRate ?? 0)}
-                </div>
-                <div class="stack-gap">
-                  <button
-                    type="button"
-                    class="connection-remove-button"
-                    data-remove-edge-id="${edge.id}"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
+              <button
+                type="button"
+                class="mini-list-row planner-port ${isTarget ? "is-target" : ""}"
+                data-port-node-id="${node.id}"
+                data-port-item-id="${entry.item.id}"
+                data-port-type="${portType}"
+              >
+                <span class="planner-port-handle ${portType}"></span>
+                <span class="planner-port-name">
+                  ${entry.item.name}
+                </span>
+                <span class="planner-port-amount">${plannerEntryAmount(entry)}</span>
+              </button>
             `;
           }).join("")
-        : '<div class="empty">No connections yet.</div>';
-
-      els.plannerConnections.querySelectorAll("[data-remove-edge-id]").forEach((button) => {
-        button.addEventListener("click", () => {
-          removePlannerConnection(button.dataset.removeEdgeId);
-        });
-      });
-    }
-
-    function plannerIoMarkup(entries) {
-      return entries.length
-        ? entries.map((entry) => `
-            <div class="mini-list-row">
-              <span>${entry.item.name}</span>
-              <span>${plannerEntryAmount(entry)}</span>
-            </div>
-          `).join("")
         : '<div class="empty">None</div>';
     }
 
     function renderPlannerNodes() {
-      els.plannerWorkspace.querySelectorAll(".planner-node").forEach((node) => node.remove());
+      els.plannerCanvas.querySelectorAll(".planner-node").forEach((node) => node.remove());
       state.planner.nodes.forEach((node) => {
         const computed = getPlannerNodeComputed(node);
         if (!computed) return;
@@ -610,6 +843,8 @@ SCRIPT = r"""
         nodeEl.dataset.nodeId = node.id;
         nodeEl.style.left = `${node.x}px`;
         nodeEl.style.top = `${node.y}px`;
+        nodeEl.style.width = `${node.width ?? DEFAULT_NODE_WIDTH}px`;
+        nodeEl.style.height = `${node.height ?? DEFAULT_NODE_HEIGHT}px`;
         nodeEl.innerHTML = `
           <div class="planner-node-header">
             <div>
@@ -627,181 +862,174 @@ SCRIPT = r"""
             </button>
           </div>
           <div class="planner-node-body">
-            <div class="planner-node-meta">
-              <div class="metric-card">
-                <div class="label">Cycle</div>
-                <div class="value">${computed.recipe.duration_seconds}s</div>
-              </div>
-              <div class="metric-card">
-                <div class="label">Machines</div>
-                <div class="value">
-                  ${formatAmount(computed.machine_count)}
-                </div>
-              </div>
-            </div>
-            <div class="planner-node-meta">
-              <div class="metric-card">
-                <div class="label">Per Machine</div>
-                <div class="value">
-                  ${isPowerItem(node.targetItemId)
-                    ? `${formatAmount(computed.per_machine_rate)} MW`
-                    : `${formatAmount(computed.per_machine_rate)}/min`}
-                </div>
-              </div>
-              <div class="metric-card">
-                <div class="label">Requested</div>
-                <div class="value">
-                  ${isPowerItem(node.targetItemId)
-                    ? `${formatAmount(computed.requested_target_rate)} MW`
-                    : `${formatAmount(computed.requested_target_rate)}/min`}
-                </div>
-              </div>
-            </div>
-            <div class="planner-node-actions">
-              <div class="field">
-                <label>Target Output</label>
-                <select class="planner-select" data-node-target-item="${node.id}">
-                  ${computed.recipe.outputs.map((entry) => `
-                    <option
-                      value="${entry.item.id}"
-                      ${entry.item.id === node.targetItemId ? "selected" : ""}
-                    >
-                      ${entry.item.name}
-                    </option>
-                  `).join("")}
-                </select>
-              </div>
-              <div class="field">
-                <label>${isPowerItem(node.targetItemId) ? "Target MW" : "Target / min"}</label>
-                <input
-                  class="planner-rate-input"
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value="${formatAmount(node.targetRatePerMinute)}"
-                  data-node-rate="${node.id}"
-                >
-              </div>
-            </div>
-            <div class="planner-node-actions">
-              <div class="field">
-                <label>Belt Limit</label>
-                <select
-                  class="planner-select"
-                  data-node-belt-capacity="${node.id}"
-                  ${isPowerItem(node.targetItemId) ? "disabled" : ""}
-                >
-                  <option value="">Unlimited</option>
-                  ${BELT_CAPACITY_OPTIONS.map((capacity) => `
-                    <option value="${capacity}" ${node.beltCapacity === capacity ? "selected" : ""}>
-                      ${beltCapacityLabel(capacity)}
-                    </option>
-                  `).join("")}
-                </select>
-              </div>
-              <div class="field">
-                <label>Canvas Action</label>
-                <button
-                  type="button"
-                  class="secondary-button"
-                  data-start-connect-node="${node.id}"
-                >
-                  ${state.planner.connectSourceNodeId === node.id ? "Connecting..." : "Connect"}
-                </button>
+            <div class="planner-node-meta compact">
+              <div class="metric-card wide">
+                <div class="label">Machines Needed</div>
+                <div class="value">${formatAmount(computed.machine_count)}</div>
               </div>
             </div>
             <div class="planner-node-grid">
               <section class="planner-io-column inputs">
                 <h4>Inputs</h4>
-                <div class="mini-list">${plannerIoMarkup(computed.inputs)}</div>
+                <div class="mini-list">
+                  ${plannerIoMarkup(node, computed, computed.inputs, "input")}
+                </div>
               </section>
               <section class="planner-io-column outputs">
                 <h4>Outputs</h4>
-                <div class="mini-list">${plannerIoMarkup(computed.outputs)}</div>
+                <div class="mini-list">
+                  ${plannerIoMarkup(node, computed, computed.outputs, "output")}
+                </div>
               </section>
             </div>
           </div>
+          <div
+            class="planner-resize-handle left"
+            data-resize-node="${node.id}"
+            data-resize-edge="left"
+          ></div>
+          <div
+            class="planner-resize-handle right"
+            data-resize-node="${node.id}"
+            data-resize-edge="right"
+          ></div>
+          <div
+            class="planner-resize-handle top"
+            data-resize-node="${node.id}"
+            data-resize-edge="top"
+          ></div>
+          <div
+            class="planner-resize-handle bottom"
+            data-resize-node="${node.id}"
+            data-resize-edge="bottom"
+          ></div>
         `;
         nodeEl.addEventListener("click", (event) => {
-          if (
-            event.target.closest(
-              "button, input, select, option, label, .field, .planner-node-actions"
-            )
-          ) {
-            return;
-          }
-          if (state.planner.connectSourceNodeId && state.planner.connectSourceNodeId !== node.id) {
-            const sourceNodeId = state.planner.connectSourceNodeId;
-            const compatibleItems = getConnectionCompatibility(sourceNodeId, node.id);
-            if (compatibleItems.length === 1) {
-              addPlannerConnection(sourceNodeId, node.id, compatibleItems[0].id);
-              state.planner.connectSourceNodeId = null;
-              renderPlanner();
-              return;
-            }
-            if (!compatibleItems.length) {
-              els.status.textContent = "These nodes do not share a compatible item.";
-            } else {
-              els.status.textContent =
-                "Multiple compatible items exist. Use the connection controls to choose one.";
-            }
-            state.planner.connectSourceNodeId = null;
-            renderPlanner();
+          if (event.target.closest("button, input")) {
             return;
           }
           state.planner.selectedNodeId = node.id;
           renderPlanner();
         });
-        els.plannerWorkspace.appendChild(nodeEl);
+        els.plannerCanvas.appendChild(nodeEl);
       });
 
-      els.plannerWorkspace.querySelectorAll("[data-remove-node-id]").forEach((button) => {
+      els.plannerCanvas.querySelectorAll("[data-remove-node-id]").forEach((button) => {
         button.addEventListener("click", (event) => {
           event.stopPropagation();
           removePlannerNode(button.dataset.removeNodeId);
         });
       });
 
-      els.plannerWorkspace.querySelectorAll("[data-node-rate]").forEach((input) => {
-        input.addEventListener("change", () => {
-          const value = Number(input.value);
-          if (Number.isNaN(value) || value < 0) {
-            els.status.textContent = "Target output rate must be a non-negative number.";
-            return;
-          }
-          updatePlannerNode(input.dataset.nodeRate, { targetRatePerMinute: value });
-        });
-      });
-
-      els.plannerWorkspace.querySelectorAll("[data-node-target-item]").forEach((select) => {
-        select.addEventListener("change", () => {
-          const node = getPlannerNode(select.dataset.nodeTargetItem);
-          const recipe = recipeById(node.recipeId);
-          const nextRate =
-            recipeOutputRatePerMinute(recipe, select.value) ?? node.targetRatePerMinute;
-          updatePlannerNode(node.id, {
-            targetItemId: select.value,
-            targetRatePerMinute: nextRate
-          });
-        });
-      });
-
-      els.plannerWorkspace.querySelectorAll("[data-node-belt-capacity]").forEach((select) => {
-        select.addEventListener("change", () => {
-          const beltCapacity = select.value ? Number(select.value) : null;
-          updatePlannerNode(select.dataset.nodeBeltCapacity, { beltCapacity });
-        });
-      });
-
-      els.plannerWorkspace.querySelectorAll("[data-start-connect-node]").forEach((button) => {
+      els.plannerCanvas.querySelectorAll('[data-port-type="input"]').forEach((button) => {
         button.addEventListener("click", (event) => {
           event.stopPropagation();
-          const nodeId = button.dataset.startConnectNode;
-          state.planner.connectSourceNodeId =
-            state.planner.connectSourceNodeId === nodeId ? null : nodeId;
-          renderPlanner();
-          if (state.planner.connectSourceNodeId) {
-            els.status.textContent = "Select a target node on the canvas to create a connection.";
+          const nodeId = button.dataset.portNodeId;
+          const itemId = button.dataset.portItemId;
+          const node = getPlannerNode(nodeId);
+          const computed = getPlannerNodeComputed(node);
+          if (!node || !computed) return;
+          const currentRate = getItemRate(computed.inputs, itemId);
+          updatePlannerNode(nodeId, {
+            targetItemId: itemId,
+            targetRatePerMinute: currentRate
+          });
+          openTargetPopup(nodeId, itemId, event.clientX, event.clientY);
+        });
+      });
+
+      els.plannerCanvas.querySelectorAll('[data-port-type="output"]').forEach((button) => {
+        button.addEventListener("pointerdown", (event) => {
+          if (event.button !== 0) return;
+          event.stopPropagation();
+          closeTargetPopup();
+          const anchor = portAnchorPoint(button, "right");
+          state.planner.dragConnection = {
+            active: true,
+            sourceNodeId: button.dataset.portNodeId,
+            itemId: button.dataset.portItemId,
+            startX: anchor.x,
+            startY: anchor.y,
+            currentX: anchor.x,
+            currentY: anchor.y,
+            validTargetNodeId: null
+          };
+          button.dataset.dragging = "false";
+          button.dataset.pointerHandled = "false";
+          const startClientX = event.clientX;
+          const startClientY = event.clientY;
+          button.setPointerCapture(event.pointerId);
+          button.onpointermove = (moveEvent) => {
+            const point = clientToCanvasPoint(moveEvent.clientX, moveEvent.clientY);
+            state.planner.dragConnection.currentX = point.x;
+            state.planner.dragConnection.currentY = point.y;
+            const target = dragTargetFromClientPoint(
+              moveEvent.clientX,
+              moveEvent.clientY,
+              button.dataset.portItemId,
+              button.dataset.portNodeId
+            );
+            state.planner.dragConnection.validTargetNodeId = target?.nodeId ?? null;
+            if (
+              Math.abs(moveEvent.clientX - startClientX) > 4 ||
+              Math.abs(moveEvent.clientY - startClientY) > 4
+            ) {
+              button.dataset.dragging = "true";
+            }
+            els.status.textContent = target
+              ? `Release to connect ${itemNameById(button.dataset.portItemId)}.`
+              : "Drag to a matching input to create a connection.";
+            renderPlannerEdges();
+          };
+          button.onpointerup = (upEvent) => {
+            const target = dragTargetFromClientPoint(
+              upEvent.clientX,
+              upEvent.clientY,
+              button.dataset.portItemId,
+              button.dataset.portNodeId
+            );
+            if (button.dataset.dragging === "true") {
+              if (target) {
+                addPlannerConnection(button.dataset.portNodeId, target.nodeId, target.itemId);
+              } else {
+                els.status.textContent = "Release on a matching input to create a connection.";
+              }
+            } else {
+              const nodeId = button.dataset.portNodeId;
+              const itemId = button.dataset.portItemId;
+              const node = getPlannerNode(nodeId);
+              const computed = getPlannerNodeComputed(node);
+              if (node && computed) {
+                const currentRate = getItemRate(computed.outputs, itemId);
+                updatePlannerNode(nodeId, {
+                  targetItemId: itemId,
+                  targetRatePerMinute: currentRate
+                });
+                openTargetPopup(nodeId, itemId, upEvent.clientX, upEvent.clientY);
+              }
+            }
+            button.dataset.pointerHandled = "true";
+            state.planner.dragConnection = {
+              active: false,
+              sourceNodeId: null,
+              itemId: null,
+              startX: 0,
+              startY: 0,
+              currentX: 0,
+              currentY: 0,
+              validTargetNodeId: null
+            };
+            button.onpointermove = null;
+            button.onpointerup = null;
+            renderPlanner();
+          };
+        });
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          if (button.dataset.pointerHandled === "true") {
+            button.dataset.pointerHandled = "false";
+            button.dataset.dragging = "false";
+            return;
           }
         });
       });
@@ -810,66 +1038,190 @@ SCRIPT = r"""
     }
 
     function renderPlannerEdges() {
-      const bounds = els.plannerWorkspace.getBoundingClientRect();
-      els.plannerConnectionsSvg.setAttribute("viewBox", `0 0 ${bounds.width} ${bounds.height}`);
+      const worldPadding = 240;
+      const workspaceRect = els.plannerWorkspace.getBoundingClientRect();
+      const topLeft = clientToCanvasPoint(workspaceRect.left, workspaceRect.top);
+      const bottomRight = clientToCanvasPoint(workspaceRect.right, workspaceRect.bottom);
+      let minX = topLeft.x - worldPadding;
+      let minY = topLeft.y - worldPadding;
+      let maxX = bottomRight.x + worldPadding;
+      let maxY = bottomRight.y + worldPadding;
       els.plannerConnectionsSvg.innerHTML = "";
+      els.plannerConnectionLabels.innerHTML = "";
+      const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+      const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+      marker.setAttribute("id", "planner-edge-arrow");
+      marker.setAttribute("markerWidth", "8");
+      marker.setAttribute("markerHeight", "8");
+      marker.setAttribute("refX", "7");
+      marker.setAttribute("refY", "4");
+      marker.setAttribute("orient", "auto-start-reverse");
+      marker.setAttribute("markerUnits", "strokeWidth");
+      const markerPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      markerPath.setAttribute("d", "M 0 0 L 8 4 L 0 8 z");
+      markerPath.setAttribute("fill", "currentColor");
+      marker.appendChild(markerPath);
+      defs.appendChild(marker);
+      els.plannerConnectionsSvg.appendChild(defs);
+      const dragState = state.planner.dragConnection;
       state.planner.edges.forEach((edge) => {
-        const sourceEl = els.plannerWorkspace.querySelector(
+        const sourceEl = els.plannerCanvas.querySelector(
           `[data-node-id="${edge.sourceNodeId}"]`
         );
-        const targetEl = els.plannerWorkspace.querySelector(
+        const targetEl = els.plannerCanvas.querySelector(
           `[data-node-id="${edge.targetNodeId}"]`
         );
+        const sourcePortEl = els.plannerCanvas.querySelector(
+          `[data-port-node-id="${edge.sourceNodeId}"][data-port-item-id="${edge.itemId}"][data-port-type="output"]`
+        );
+        const targetPortEl = els.plannerCanvas.querySelector(
+          `[data-port-node-id="${edge.targetNodeId}"][data-port-item-id="${edge.itemId}"][data-port-type="input"]`
+        );
         if (!sourceEl || !targetEl) return;
-        const sourceRect = sourceEl.getBoundingClientRect();
-        const targetRect = targetEl.getBoundingClientRect();
-        const x1 = sourceRect.left - bounds.left + sourceRect.width;
-        const y1 = sourceRect.top - bounds.top + sourceRect.height / 2;
-        const x2 = targetRect.left - bounds.left;
-        const y2 = targetRect.top - bounds.top + targetRect.height / 2;
-        const midX = (x1 + x2) / 2;
+        const sourceNode = getPlannerNode(edge.sourceNodeId);
+        const targetNode = getPlannerNode(edge.targetNodeId);
+        if (!sourceNode || !targetNode) return;
+        const sourceRect = {
+          x: sourceNode.x,
+          y: sourceNode.y,
+          width: sourceEl.offsetWidth,
+          height: sourceEl.offsetHeight
+        };
+        const targetRect = {
+          x: targetNode.x,
+          y: targetNode.y,
+          width: targetEl.offsetWidth,
+          height: targetEl.offsetHeight
+        };
+        const sourceAnchor = sourcePortEl
+          ? portAnchorPoint(sourcePortEl, "right")
+          : connectionAnchorPoint(sourceRect, targetRect);
+        const targetAnchor = targetPortEl
+          ? portAnchorPoint(targetPortEl, "left")
+          : connectionAnchorPoint(targetRect, sourceRect);
+        const x1 = sourceAnchor.x;
+        const y1 = sourceAnchor.y;
+        const x2 = targetAnchor.x;
+        const y2 = targetAnchor.y;
+        minX = Math.min(minX, sourceNode.x - worldPadding, targetNode.x - worldPadding);
+        minY = Math.min(minY, sourceNode.y - worldPadding, targetNode.y - worldPadding);
+        maxX = Math.max(
+          maxX,
+          sourceNode.x + sourceRect.width + worldPadding,
+          targetNode.x + targetRect.width + worldPadding
+        );
+        maxY = Math.max(
+          maxY,
+          sourceNode.y + sourceRect.height + worldPadding,
+          targetNode.y + targetRect.height + worldPadding
+        );
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const curve = Math.max(80, Math.min(220, Math.abs(dx) * 0.45 + Math.abs(dy) * 0.15));
+        const control1X = x1 + Math.sign(dx || 1) * curve;
+        const control1Y = y1;
+        const control2X = x2 - Math.sign(dx || 1) * curve;
+        const control2Y = y2;
         const status = getConnectionStatus(edge);
 
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("d", `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`);
+        path.setAttribute(
+          "d",
+          `M ${x1 - minX} ${y1 - minY} ` +
+          `C ${control1X - minX} ${control1Y - minY}, ` +
+          `${control2X - minX} ${control2Y - minY}, ${x2 - minX} ${y2 - minY}`
+        );
         path.setAttribute("class", `edge-line ${status?.status ?? "balanced"}`);
+        path.setAttribute("marker-end", "url(#planner-edge-arrow)");
         els.plannerConnectionsSvg.appendChild(path);
+        const labelWorldX = (
+          0.125 * x1 +
+          0.375 * control1X +
+          0.375 * control2X +
+          0.125 * x2
+        );
+        const labelWorldY = (
+          0.125 * y1 +
+          0.375 * control1Y +
+          0.375 * control2Y +
+          0.125 * y2
+        ) - 22;
+        const label = document.createElement("div");
+        label.className = `planner-connection-label ${status?.status ?? "balanced"}`;
+        label.innerHTML = `
+          <span>
+            ${itemNameById(edge.itemId)} ${itemRateLabel(edge.itemId, status?.delta ?? 0)}
+          </span>
+          <button type="button" class="connection-delete-button" data-remove-edge-id="${edge.id}">
+            x
+          </button>
+        `;
+        label.style.left =
+          `${labelWorldX * state.planner.zoom + state.planner.panX}px`;
+        label.style.top =
+          `${labelWorldY * state.planner.zoom + state.planner.panY}px`;
+        label.style.transform = `translate(-50%, -50%) scale(${state.planner.zoom})`;
+        els.plannerConnectionLabels.appendChild(label);
+      });
+      if (dragState.active && dragState.sourceNodeId && dragState.itemId) {
+        const dragStatus = dragState.validTargetNodeId ? "balanced" : "target_shortage";
+        const previewDx = dragState.currentX - dragState.startX;
+        const previewCurve = Math.max(80, Math.min(220, Math.abs(previewDx) * 0.45));
+        const previewPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        previewPath.setAttribute(
+          "d",
+          `M ${dragState.startX - minX} ${dragState.startY - minY} ` +
+          `C ${dragState.startX + previewCurve - minX} ${dragState.startY - minY}, ` +
+          `${dragState.currentX - previewCurve - minX} ${dragState.currentY - minY}, ` +
+          `${dragState.currentX - minX} ${dragState.currentY - minY}`
+        );
+        previewPath.setAttribute("class", `edge-line ${dragStatus} edge-preview`);
+        previewPath.setAttribute("marker-end", "url(#planner-edge-arrow)");
+        els.plannerConnectionsSvg.appendChild(previewPath);
+      }
+      const svgWidth = Math.max(1, maxX - minX);
+      const svgHeight = Math.max(1, maxY - minY);
+      els.plannerConnectionsSvg.style.left = `${minX}px`;
+      els.plannerConnectionsSvg.style.top = `${minY}px`;
+      els.plannerConnectionsSvg.style.width = `${svgWidth}px`;
+      els.plannerConnectionsSvg.style.height = `${svgHeight}px`;
+      els.plannerConnectionsSvg.setAttribute("viewBox", `0 0 ${svgWidth} ${svgHeight}`);
 
-        const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        label.setAttribute("x", String(midX));
-        label.setAttribute("y", String((y1 + y2) / 2 - 6));
-        label.setAttribute("text-anchor", "middle");
-        label.setAttribute("class", "edge-label");
-        label.textContent =
-          `${itemNameById(edge.itemId)} ` +
-          `${itemRateLabel(edge.itemId, status?.delta ?? 0)}`;
-        els.plannerConnectionsSvg.appendChild(label);
+      els.plannerConnectionLabels.querySelectorAll("[data-remove-edge-id]").forEach((button) => {
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          removePlannerConnection(button.dataset.removeEdgeId);
+        });
       });
     }
 
     function renderPlannerSummary() {
       const nodeCount = state.planner.nodes.length;
       const edgeCount = state.planner.edges.length;
-      const connectText = state.planner.connectSourceNodeId
-        ? ` | connect from ${state.planner.connectSourceNodeId}`
-        : "";
+      const selectedWorkflowName = selectedWorkflowRecord()?.name ?? "unsaved";
+      const zoomText = ` | zoom ${Math.round(state.planner.zoom * 100)}%`;
       els.plannerSummary.textContent =
-        `${nodeCount} node(s), ${edgeCount} connection(s)` + connectText;
+        `${nodeCount} node(s), ${edgeCount} connection(s) | saved ${selectedWorkflowName}` +
+        zoomText;
       els.plannerEmpty.style.display = nodeCount ? "none" : "flex";
     }
 
     function renderPlanner() {
+      els.plannerCanvas.style.transform =
+        `translate(${state.planner.panX}px, ${state.planner.panY}px) scale(${state.planner.zoom})`;
+      els.plannerZoomReset.textContent = `${Math.round(state.planner.zoom * 100)}%`;
       renderPlannerRecipeCandidates();
       renderPlannerNodes();
       renderPlannerEdges();
-      renderPlannerConnectionOptions();
-      renderPlannerConnectionsList();
+      renderPlannerPopup();
+      renderTargetPopup();
       renderPlannerSummary();
     }
 
     function workflowPayload() {
       return {
         version: WORKFLOW_VERSION,
+        name: state.planner.workflowName,
         defaultBeltCapacity: state.planner.defaultBeltCapacity,
         nodes: state.planner.nodes.map((node) => ({
           id: node.id,
@@ -877,6 +1229,8 @@ SCRIPT = r"""
           targetItemId: node.targetItemId,
           targetRatePerMinute: node.targetRatePerMinute,
           beltCapacity: node.beltCapacity,
+          width: node.width ?? DEFAULT_NODE_WIDTH,
+          height: node.height ?? DEFAULT_NODE_HEIGHT,
           x: node.x,
           y: node.y
         })),
@@ -896,6 +1250,12 @@ SCRIPT = r"""
       if (!Array.isArray(payload.nodes) || !Array.isArray(payload.edges)) {
         throw new Error("Workflow must contain nodes and edges arrays.");
       }
+      const workflowName =
+        typeof payload.name === "string"
+          ? payload.name
+          : payload.name === undefined || payload.name === null
+            ? ""
+            : String(payload.name);
       const defaultBeltCapacity =
         payload.defaultBeltCapacity === null ||
         payload.defaultBeltCapacity === undefined ||
@@ -908,6 +1268,9 @@ SCRIPT = r"""
       ) {
         throw new Error(`Unsupported default belt capacity: ${defaultBeltCapacity}`);
       }
+      if (workflowName.length > 80) {
+        throw new Error("Workflow name must be 80 characters or fewer.");
+      }
       const importedNodes = payload.nodes.map((node) => ({
         id: String(node.id),
         recipeId: String(node.recipeId),
@@ -917,6 +1280,14 @@ SCRIPT = r"""
           node.beltCapacity === null || node.beltCapacity === undefined || node.beltCapacity === ""
             ? null
             : Number(node.beltCapacity),
+        width:
+          node.width === null || node.width === undefined || node.width === ""
+            ? DEFAULT_NODE_WIDTH
+            : Number(node.width),
+        height:
+          node.height === null || node.height === undefined || node.height === ""
+            ? DEFAULT_NODE_HEIGHT
+            : Number(node.height),
         x: Number(node.x),
         y: Number(node.y)
       }));
@@ -929,11 +1300,20 @@ SCRIPT = r"""
         if (!state.items.some((item) => item.id === node.targetItemId)) {
           throw new Error(`Unknown item id: ${node.targetItemId}`);
         }
-        if (!recipe.outputs.some((entry) => entry.item.id === node.targetItemId)) {
-          throw new Error(`Recipe ${node.recipeId} does not produce ${node.targetItemId}`);
+        const recipeUsesTarget =
+          recipe.outputs.some((entry) => entry.item.id === node.targetItemId) ||
+          recipe.inputs.some((entry) => entry.item.id === node.targetItemId);
+        if (!recipeUsesTarget) {
+          throw new Error(`Recipe ${node.recipeId} does not use ${node.targetItemId}`);
         }
         if (node.beltCapacity !== null && !BELT_CAPACITY_OPTIONS.includes(node.beltCapacity)) {
           throw new Error(`Unsupported belt capacity: ${node.beltCapacity}`);
+        }
+        if (!Number.isFinite(node.width) || node.width < MIN_NODE_WIDTH) {
+          throw new Error(`Node ${node.id} width is invalid.`);
+        }
+        if (!Number.isFinite(node.height) || node.height < MIN_NODE_HEIGHT) {
+          throw new Error(`Node ${node.id} height is invalid.`);
         }
       });
 
@@ -965,6 +1345,10 @@ SCRIPT = r"""
 
     function importWorkflow(payload) {
       validateWorkflowPayload(payload);
+      state.planner.workflowName =
+        typeof payload.name === "string" && payload.name.trim()
+          ? payload.name.trim()
+          : "Untitled Workflow";
       state.planner.defaultBeltCapacity =
         payload.defaultBeltCapacity === null ||
         payload.defaultBeltCapacity === undefined ||
@@ -980,6 +1364,14 @@ SCRIPT = r"""
           node.beltCapacity === null || node.beltCapacity === undefined || node.beltCapacity === ""
             ? null
             : Number(node.beltCapacity),
+        width:
+          node.width === null || node.width === undefined || node.width === ""
+            ? DEFAULT_NODE_WIDTH
+            : Number(node.width),
+        height:
+          node.height === null || node.height === undefined || node.height === ""
+            ? DEFAULT_NODE_HEIGHT
+            : Number(node.height),
         x: Number(node.x),
         y: Number(node.y)
       }));
@@ -990,7 +1382,7 @@ SCRIPT = r"""
         itemId: String(edge.itemId)
       }));
       state.planner.selectedNodeId = state.planner.nodes[0]?.id ?? null;
-      state.planner.connectSourceNodeId = null;
+      state.planner.connectSourcePort = null;
       const maxNode = Math.max(
         0,
         ...state.planner.nodes.map((node) => Number(node.id.split("_")[1]) || 0)
@@ -1001,40 +1393,51 @@ SCRIPT = r"""
       );
       state.planner.nextNodeNumber = maxNode + 1;
       state.planner.nextEdgeNumber = maxEdge + 1;
+      renderOptions();
       renderPlanner();
     }
 
-    function exportWorkflow() {
-      const blob = new Blob([JSON.stringify(workflowPayload(), null, 2)], {
-        type: "application/json"
-      });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = "satisfactory-workflow.json";
-      anchor.click();
-      URL.revokeObjectURL(url);
-      els.status.textContent = "Exported workflow JSON.";
+    async function exportWorkflow() {
+      const result = await postJson("/api/workflows", workflowPayload());
+      await refreshWorkflows(result.filename);
+      renderPlannerSummary();
+      els.status.textContent =
+        `Exported workflow JSON to ${result.path}.`;
+    }
+
+    async function importSelectedWorkflow() {
+      const filename = els.plannerSavedWorkflows.value || state.planner.selectedWorkflowFilename;
+      if (!filename) {
+        els.status.textContent = "Choose a saved workflow to import.";
+        return;
+      }
+      const payload = await fetchJson(`/api/workflows/${encodeURIComponent(filename)}`);
+      importWorkflow(payload);
+      state.planner.selectedWorkflowFilename = filename;
+      renderOptions();
+      renderPlannerSummary();
+      setMode("planner");
+      const workflow = selectedWorkflowRecord();
+      els.status.textContent =
+        `Imported workflow JSON from ${workflow?.name ?? filename}.`;
     }
 
     function bindPlannerDragging() {
-      els.plannerWorkspace.querySelectorAll(".planner-node-header").forEach((header) => {
+      els.plannerCanvas.querySelectorAll(".planner-node-header").forEach((header) => {
         header.onpointerdown = (event) => {
           if (event.target.closest("[data-remove-node-id]")) return;
           const nodeEl = header.closest(".planner-node");
           const node = getPlannerNode(nodeEl.dataset.nodeId);
           if (!node) return;
           state.planner.selectedNodeId = node.id;
-          const workspaceRect = els.plannerWorkspace.getBoundingClientRect();
-          const nodeRect = nodeEl.getBoundingClientRect();
-          const offsetX = event.clientX - nodeRect.left;
-          const offsetY = event.clientY - nodeRect.top;
+          const startPoint = clientToCanvasPoint(event.clientX, event.clientY);
+          const offsetX = startPoint.x - node.x;
+          const offsetY = startPoint.y - node.y;
           header.setPointerCapture(event.pointerId);
           header.onpointermove = (moveEvent) => {
-            const maxX = Math.max(0, workspaceRect.width - nodeRect.width);
-            const maxY = Math.max(0, workspaceRect.height - nodeRect.height);
-            node.x = Math.min(Math.max(0, moveEvent.clientX - workspaceRect.left - offsetX), maxX);
-            node.y = Math.min(Math.max(0, moveEvent.clientY - workspaceRect.top - offsetY), maxY);
+            const point = clientToCanvasPoint(moveEvent.clientX, moveEvent.clientY);
+            node.x = point.x - offsetX;
+            node.y = point.y - offsetY;
             nodeEl.style.left = `${node.x}px`;
             nodeEl.style.top = `${node.y}px`;
             renderPlannerEdges();
@@ -1045,6 +1448,161 @@ SCRIPT = r"""
             renderPlanner();
           };
         };
+      });
+
+      els.plannerCanvas.querySelectorAll("[data-resize-node]").forEach((handle) => {
+        handle.onpointerdown = (event) => {
+          event.stopPropagation();
+          const node = getPlannerNode(handle.dataset.resizeNode);
+          const nodeEl = els.plannerCanvas.querySelector(
+            `[data-node-id="${handle.dataset.resizeNode}"]`
+          );
+          if (!node || !nodeEl) return;
+          const edge = handle.dataset.resizeEdge;
+          const startPoint = clientToCanvasPoint(event.clientX, event.clientY);
+          const startX = startPoint.x;
+          const startY = startPoint.y;
+          const startNode = {
+            x: node.x,
+            y: node.y,
+            width: node.width ?? nodeEl.offsetWidth,
+            height: node.height ?? nodeEl.offsetHeight
+          };
+          handle.setPointerCapture(event.pointerId);
+          handle.onpointermove = (moveEvent) => {
+            const point = clientToCanvasPoint(moveEvent.clientX, moveEvent.clientY);
+            const dx = point.x - startX;
+            const dy = point.y - startY;
+            if (edge === "right") {
+              node.width = Math.max(MIN_NODE_WIDTH, startNode.width + dx);
+            }
+            if (edge === "left") {
+              const nextWidth = Math.max(MIN_NODE_WIDTH, startNode.width - dx);
+              node.x = startNode.x + (startNode.width - nextWidth);
+              node.width = nextWidth;
+            }
+            if (edge === "bottom") {
+              node.height = Math.max(MIN_NODE_HEIGHT, startNode.height + dy);
+            }
+            if (edge === "top") {
+              const nextHeight = Math.max(MIN_NODE_HEIGHT, startNode.height - dy);
+              node.y = startNode.y + (startNode.height - nextHeight);
+              node.height = nextHeight;
+            }
+            nodeEl.style.left = `${node.x}px`;
+            nodeEl.style.top = `${node.y}px`;
+            nodeEl.style.width = `${node.width}px`;
+            nodeEl.style.height = `${node.height}px`;
+            renderPlannerEdges();
+          };
+          handle.onpointerup = () => {
+            handle.onpointermove = null;
+            handle.onpointerup = null;
+            renderPlanner();
+          };
+        };
+      });
+    }
+
+    function bindPlannerWorkspaceInteractions() {
+      let isPanning = false;
+      let panStartX = 0;
+      let panStartY = 0;
+      let pointerId = null;
+      let spacePressed = false;
+
+      document.addEventListener("keydown", (event) => {
+        if (event.code === "Space") {
+          spacePressed = true;
+        }
+      });
+      document.addEventListener("keyup", (event) => {
+        if (event.code === "Space") {
+          spacePressed = false;
+        }
+      });
+
+      els.plannerWorkspace.addEventListener(
+        "wheel",
+        (event) => {
+          event.preventDefault();
+          const rect = els.plannerWorkspace.getBoundingClientRect();
+          const cursorX = event.clientX - rect.left;
+          const cursorY = event.clientY - rect.top;
+          const canvasPoint = clientToCanvasPoint(event.clientX, event.clientY);
+          const delta = event.deltaY < 0 ? 0.1 : -0.1;
+          state.planner.zoom = clampZoom(state.planner.zoom + delta);
+          state.planner.panX = cursorX - canvasPoint.x * state.planner.zoom;
+          state.planner.panY = cursorY - canvasPoint.y * state.planner.zoom;
+          renderPlanner();
+        },
+        { passive: false }
+      );
+
+      els.plannerWorkspace.addEventListener("pointerdown", (event) => {
+        const clickedNode = event.target.closest(".planner-node");
+        const clickedOverlay = event.target.closest(
+          ".planner-add-popup, .planner-target-popup, .planner-connection-label"
+        );
+        const clickedControl = event.target.closest("button, input, select, option, label");
+        if (clickedNode || clickedOverlay || clickedControl) {
+          return;
+        }
+        if (event.button === 0 || (event.button === 0 && spacePressed)) {
+          isPanning = true;
+          pointerId = event.pointerId;
+          panStartX = event.clientX - state.planner.panX;
+          panStartY = event.clientY - state.planner.panY;
+          els.plannerWorkspace.setPointerCapture(event.pointerId);
+          closePlannerPopup();
+        }
+      });
+
+      els.plannerWorkspace.addEventListener("pointermove", (event) => {
+        if (!isPanning || event.pointerId !== pointerId) {
+          return;
+        }
+        state.planner.panX = event.clientX - panStartX;
+        state.planner.panY = event.clientY - panStartY;
+        renderPlanner();
+      });
+
+      const stopPanning = (event) => {
+        if (event.pointerId === pointerId) {
+          isPanning = false;
+          pointerId = null;
+        }
+      };
+      els.plannerWorkspace.addEventListener("pointerup", stopPanning);
+      els.plannerWorkspace.addEventListener("pointercancel", stopPanning);
+
+      els.plannerWorkspace.addEventListener("click", (event) => {
+        if (isPanning || spacePressed) {
+          return;
+        }
+        if (event.button !== 0) {
+          return;
+        }
+        if (
+          event.target.closest(".planner-node") ||
+          event.target.closest(".planner-add-popup") ||
+          event.target.closest(".planner-target-popup")
+        ) {
+          return;
+        }
+      });
+
+      els.plannerWorkspace.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        if (
+          event.target.closest(".planner-node") ||
+          event.target.closest(".planner-add-popup") ||
+          event.target.closest(".planner-target-popup")
+        ) {
+          return;
+        }
+        closeTargetPopup();
+        openPlannerPopup(event.clientX, event.clientY);
       });
     }
 
@@ -1059,9 +1617,11 @@ SCRIPT = r"""
       state.outputItemId =
         items.find((item) => item.id === "iron_ingot")?.id ?? items[0]?.id ?? null;
       state.planner.selectedOutputItemId = state.outputItemId;
+      await refreshWorkflows();
       renderOptions();
       await loadRecipe(state.currentRecipeId);
       await searchByOutput();
+      bindPlannerWorkspaceInteractions();
       renderPlanner();
     }
 
@@ -1094,34 +1654,88 @@ SCRIPT = r"""
     });
     els.searchButton.addEventListener("click", searchByOutput);
     els.plannerSearchButton.addEventListener("click", findPlannerRecipes);
+    els.plannerPopupSearch.addEventListener("click", findPlannerPopupRecipes);
+    els.plannerPopupRecipe.addEventListener("change", () => {
+      state.planner.popup.selectedRecipeId = els.plannerPopupRecipe.value || null;
+    });
+    els.plannerPopupConfirm.addEventListener("click", () => {
+      if (!state.planner.popup.outputItemId || !state.planner.popup.selectedRecipeId) {
+        els.status.textContent = "Choose an output item and recipe before adding a node.";
+        return;
+      }
+      addPlannerNodeAt(
+        state.planner.popup.selectedRecipeId,
+        state.planner.popup.outputItemId,
+        state.planner.popup.canvasX,
+        state.planner.popup.canvasY
+      );
+    });
+    els.plannerPopupCancel.addEventListener("click", closePlannerPopup);
+    els.plannerTargetPopupSave.addEventListener("click", () => {
+      const value = Number(els.plannerTargetPopupRate.value);
+      if (Number.isNaN(value) || value < 0) {
+        els.status.textContent = "Target amount must be a non-negative number.";
+        return;
+      }
+      if (!state.planner.targetPopup.nodeId || !state.planner.targetPopup.itemId) {
+        return;
+      }
+      updatePlannerNode(state.planner.targetPopup.nodeId, {
+        targetItemId: state.planner.targetPopup.itemId,
+        targetRatePerMinute: value
+      });
+      closeTargetPopup();
+    });
+    els.plannerTargetPopupCancel.addEventListener("click", closeTargetPopup);
+    els.plannerZoomOut.addEventListener("click", () => {
+      state.planner.zoom = clampZoom(state.planner.zoom - 0.1);
+      renderPlanner();
+    });
+    els.plannerZoomReset.addEventListener("click", () => {
+      state.planner.zoom = 1;
+      renderPlanner();
+    });
+    els.plannerZoomIn.addEventListener("click", () => {
+      state.planner.zoom = clampZoom(state.planner.zoom + 0.1);
+      renderPlanner();
+    });
     els.plannerDefaultBelt.addEventListener("change", () => {
       state.planner.defaultBeltCapacity = els.plannerDefaultBelt.value
         ? Number(els.plannerDefaultBelt.value)
         : null;
       renderOptions();
+      renderPlanner();
     });
-    els.connectionSource.addEventListener("change", refreshConnectionItemOptions);
-    els.connectionTarget.addEventListener("change", refreshConnectionItemOptions);
-    els.addConnectionButton.addEventListener("click", () => {
-      addPlannerConnection(
-        els.connectionSource.value,
-        els.connectionTarget.value,
-        els.connectionItem.value
-      );
+    els.plannerWorkflowName.addEventListener("input", () => {
+      state.planner.workflowName = els.plannerWorkflowName.value || "Untitled Workflow";
+      renderPlannerSummary();
     });
-    els.exportWorkflowButton.addEventListener("click", exportWorkflow);
-    els.importWorkflowButton.addEventListener("click", () => els.importWorkflowInput.click());
-    els.importWorkflowInput.addEventListener("change", async () => {
-      const file = els.importWorkflowInput.files?.[0];
-      if (!file) return;
+    els.plannerSavedWorkflows.addEventListener("change", () => {
+      state.planner.selectedWorkflowFilename = els.plannerSavedWorkflows.value;
+      renderPlannerSummary();
+    });
+    els.newWorkflowButton.addEventListener("click", resetPlannerWorkflow);
+    els.plannerRefreshWorkflows.addEventListener("click", async () => {
       try {
-        importWorkflow(JSON.parse(await file.text()));
-        setMode("planner");
-        els.status.textContent = "Imported workflow JSON.";
+        await refreshWorkflows(state.planner.selectedWorkflowFilename);
+        renderPlannerSummary();
+        els.status.textContent = "Refreshed saved workflows.";
+      } catch (error) {
+        els.status.textContent = `Failed to refresh workflows: ${error.message}`;
+      }
+    });
+    els.exportWorkflowButton.addEventListener("click", async () => {
+      try {
+        await exportWorkflow();
+      } catch (error) {
+        els.status.textContent = `Failed to export workflow: ${error.message}`;
+      }
+    });
+    els.importWorkflowButton.addEventListener("click", async () => {
+      try {
+        await importSelectedWorkflow();
       } catch (error) {
         els.status.textContent = `Failed to import workflow: ${error.message}`;
-      } finally {
-        els.importWorkflowInput.value = "";
       }
     });
     window.addEventListener("resize", renderPlannerEdges);

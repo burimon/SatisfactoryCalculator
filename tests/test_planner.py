@@ -13,6 +13,7 @@ from SatisfactoryCalculator.webapp.planner import (
     WORKFLOW_VERSION,
     Workflow,
     WorkflowValidationError,
+    aggregate_connection_imbalance,
     connection_imbalance,
     scale_recipe_for_target,
     workflow_from_payload,
@@ -60,6 +61,12 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(scaled["multiplier"], 2.0)
         self.assertEqual(scaled["outputs"]["iron_ingot"], 40.0)
         self.assertEqual(scaled["outputs"]["copper_ingot"], 20.0)
+
+    def test_scale_recipe_for_target_allows_input_item_targets(self) -> None:
+        scaled = scale_recipe_for_target(get_recipe("iron_plate"), "iron_ingot", 30.0)
+        self.assertEqual(scaled["multiplier"], 1.0)
+        self.assertEqual(scaled["inputs"]["iron_ingot"], 30.0)
+        self.assertEqual(scaled["outputs"]["iron_plate"], 20.0)
 
     def test_scale_recipe_for_target_keeps_power_in_mw_units(self) -> None:
         scaled = scale_recipe_for_target(get_recipe("power_biomass"), "power", 30.0)
@@ -109,8 +116,15 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(result["status"], "target_shortage")
         self.assertEqual(result["delta"], -15.0)
 
+    def test_aggregate_connection_imbalance_allows_multiple_sources(self) -> None:
+        result = aggregate_connection_imbalance([20.0, 10.0], 30.0)
+        self.assertEqual(result["status"], "balanced")
+        self.assertEqual(result["total_source_rate"], 30.0)
+        self.assertEqual(result["delta"], 0.0)
+
     def test_workflow_round_trip(self) -> None:
         workflow = Workflow(
+            name="Starter Iron Line",
             default_belt_capacity=120.0,
             nodes=(
                 PlannerNode(
@@ -119,6 +133,8 @@ class PlannerTests(unittest.TestCase):
                     target_item_id="iron_ingot",
                     target_rate_per_minute=30.0,
                     belt_capacity=60.0,
+                    width=280.0,
+                    height=210.0,
                     x=10.0,
                     y=20.0,
                 ),
@@ -128,6 +144,8 @@ class PlannerTests(unittest.TestCase):
                     target_item_id="iron_plate",
                     target_rate_per_minute=20.0,
                     belt_capacity=120.0,
+                    width=320.0,
+                    height=240.0,
                     x=240.0,
                     y=20.0,
                 ),
@@ -151,6 +169,7 @@ class PlannerTests(unittest.TestCase):
             workflow_from_payload(
                 {
                     "version": WORKFLOW_VERSION,
+                    "name": "Broken workflow",
                     "defaultBeltCapacity": 120,
                     "nodes": [
                         {
@@ -159,6 +178,8 @@ class PlannerTests(unittest.TestCase):
                             "targetItemId": "iron_ingot",
                             "targetRatePerMinute": 30,
                             "beltCapacity": 60,
+                            "width": 280,
+                            "height": 210,
                             "x": 0,
                             "y": 0,
                         }
@@ -172,6 +193,7 @@ class PlannerTests(unittest.TestCase):
             workflow_from_payload(
                 {
                     "version": WORKFLOW_VERSION,
+                    "name": "Broken workflow",
                     "defaultBeltCapacity": 120,
                     "nodes": [
                         {
@@ -180,6 +202,8 @@ class PlannerTests(unittest.TestCase):
                             "targetItemId": "bad_item",
                             "targetRatePerMinute": 30,
                             "beltCapacity": 60,
+                            "width": 280,
+                            "height": 210,
                             "x": 0,
                             "y": 0,
                         }
@@ -193,6 +217,7 @@ class PlannerTests(unittest.TestCase):
             workflow_from_payload(
                 {
                     "version": WORKFLOW_VERSION,
+                    "name": "Broken workflow",
                     "defaultBeltCapacity": 120,
                     "nodes": [
                         {
@@ -201,6 +226,8 @@ class PlannerTests(unittest.TestCase):
                             "targetItemId": "iron_ingot",
                             "targetRatePerMinute": 30,
                             "beltCapacity": 60,
+                            "width": 280,
+                            "height": 210,
                             "x": 0,
                             "y": 0,
                         }
@@ -224,6 +251,7 @@ class PlannerTests(unittest.TestCase):
             workflow_from_payload(
                 {
                     "version": WORKFLOW_VERSION,
+                    "name": "Broken workflow",
                     "defaultBeltCapacity": 120,
                     "nodes": [
                         {
@@ -232,6 +260,8 @@ class PlannerTests(unittest.TestCase):
                             "targetItemId": "iron_ingot",
                             "targetRatePerMinute": 30,
                             "beltCapacity": 60,
+                            "width": 280,
+                            "height": 210,
                             "x": 0,
                             "y": 0,
                         },
@@ -241,6 +271,8 @@ class PlannerTests(unittest.TestCase):
                             "targetItemId": "iron_plate",
                             "targetRatePerMinute": 20,
                             "beltCapacity": 120,
+                            "width": 280,
+                            "height": 210,
                             "x": 100,
                             "y": 0,
                         },
@@ -259,14 +291,40 @@ class PlannerTests(unittest.TestCase):
     def test_workflow_round_trip_preserves_default_belt_capacity(self) -> None:
         payload = workflow_to_payload(
             Workflow(
+                name="Steel Expansion",
                 default_belt_capacity=270.0,
                 nodes=(),
                 edges=(),
             )
         )
+        self.assertEqual(payload["name"], "Steel Expansion")
         self.assertEqual(payload["defaultBeltCapacity"], 270.0)
         restored = workflow_from_payload(payload)
+        self.assertEqual(restored.name, "Steel Expansion")
         self.assertEqual(restored.default_belt_capacity, 270.0)
+
+    def test_workflow_defaults_missing_node_dimensions(self) -> None:
+        restored = workflow_from_payload(
+            {
+                "version": WORKFLOW_VERSION,
+                "name": "Legacy",
+                "defaultBeltCapacity": 60,
+                "nodes": [
+                    {
+                        "id": "node_1",
+                        "recipeId": "iron_ingot",
+                        "targetItemId": "iron_ingot",
+                        "targetRatePerMinute": 30,
+                        "beltCapacity": 60,
+                        "x": 0,
+                        "y": 0,
+                    }
+                ],
+                "edges": [],
+            }
+        )
+        self.assertEqual(restored.nodes[0].width, 280.0)
+        self.assertEqual(restored.nodes[0].height, 210.0)
 
 
 if __name__ == "__main__":
