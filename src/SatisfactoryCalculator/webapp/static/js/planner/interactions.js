@@ -13,6 +13,16 @@ function dragTargetFromClientPoint(clientX, clientY, itemId, sourceNodeId) {
 }
 
 export function bindPlannerInteractions({ controller, els, setStatus, state, viewport }) {
+  let edgeRenderPending = false;
+  function scheduleEdgeRender() {
+    if (edgeRenderPending) return;
+    edgeRenderPending = true;
+    requestAnimationFrame(() => {
+      edgeRenderPending = false;
+      controller.renderEdges();
+    });
+  }
+
   els.plannerConnectionLabels.addEventListener("click", (event) => {
     const button = event.target.closest("[data-remove-edge-id]");
     if (!button) return;
@@ -92,7 +102,7 @@ export function bindPlannerInteractions({ controller, els, setStatus, state, vie
         nodeEl.style.top = `${node.y}px`;
         nodeEl.style.width = `${node.width}px`;
         nodeEl.style.height = `${node.height}px`;
-        controller.renderEdges();
+        scheduleEdgeRender();
       };
       resizeHandle.onpointerup = () => {
         resizeHandle.onpointermove = null;
@@ -139,7 +149,7 @@ export function bindPlannerInteractions({ controller, els, setStatus, state, vie
             ? `Release to connect ${controller.itemNameById(outputPort.dataset.portItemId)}.`
             : "Drag to a matching input to create a connection."
         );
-        controller.renderEdges();
+        scheduleEdgeRender();
       };
       outputPort.onpointerup = (upEvent) => {
         const moved = Math.abs(upEvent.clientX - startClientX) > 4 ||
@@ -198,7 +208,7 @@ export function bindPlannerInteractions({ controller, els, setStatus, state, vie
       node.y = point.y - offsetY;
       nodeEl.style.left = `${node.x}px`;
       nodeEl.style.top = `${node.y}px`;
-      controller.renderEdges();
+      scheduleEdgeRender();
     };
     header.onpointerup = () => {
       header.onpointermove = null;
@@ -270,5 +280,9 @@ export function bindPlannerInteractions({ controller, els, setStatus, state, vie
     controller.openPlannerPopup(event.clientX, event.clientY);
   });
 
-  window.addEventListener("resize", () => controller.renderEdges());
+  let resizeTimer = 0;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => controller.renderEdges(), 150);
+  });
 }

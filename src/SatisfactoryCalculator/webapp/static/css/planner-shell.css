@@ -160,12 +160,12 @@
 .planner-net-balance-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 480px;
+  min-width: 260px;
 }
 
 .planner-net-balance-table th,
 .planner-net-balance-table td {
-  padding: 10px 12px;
+  padding: 7px 8px;
   border-bottom: 1px solid rgba(195, 208, 219, 0.7);
   text-align: left;
   font-variant-numeric: tabular-nums;
