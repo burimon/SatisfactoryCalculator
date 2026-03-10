@@ -1,4 +1,5 @@
 import { EDGE_PADDING } from "../common/constants.js";
+import { formatAmount } from "../common/format.js";
 import {
   bezierMidpoint,
   connectionAnchorPoint,
@@ -72,12 +73,18 @@ export function renderPlannerEdges({ state, els, allocationMap }) {
       : connectionAnchorPoint(targetRect, sourceRect);
     const { control1, control2 } = edgeControlPoints(start, end);
     const labelPoint = bezierMidpoint(start, control1, control2, end);
-    const status = allocationMap.get(edge.id)?.status ?? "balanced";
+    const allocation = allocationMap.get(edge.id);
+    const status = allocation?.status ?? "balanced";
+    const allocatedRate = allocation?.allocatedRate ?? 0;
+    const hasOverride = allocation?.hasOverride ?? false;
 
     [start, end, control1, control2].forEach((point) => {
       bounds = includePoint(bounds, point, EDGE_PADDING);
     });
-    drawings.push({ control1, control2, edgeId: edge.id, end, labelPoint, start, status });
+    drawings.push({
+      control1, control2, edgeId: edge.id, end, labelPoint, start, status,
+      allocatedRate, hasOverride,
+    });
   });
 
   const dragState = state.planner.dragConnection;
@@ -127,10 +134,13 @@ export function renderPlannerEdges({ state, els, allocationMap }) {
     els.plannerConnectionsSvg.appendChild(path);
 
     const label = document.createElement("div");
-    label.className = `planner-connection-label ${drawing.status}`;
+    label.className = `planner-connection-label ${drawing.status}${drawing.hasOverride ? " has-override" : ""}`;
     label.style.left = `${drawing.labelPoint.x}px`;
     label.style.top = `${drawing.labelPoint.y - 22}px`;
     label.innerHTML = `
+      <button type="button" class="connection-rate-button" data-edit-edge-id="${drawing.edgeId}">
+        ${formatAmount(drawing.allocatedRate)}
+      </button>
       <button type="button" class="connection-delete-button" data-remove-edge-id="${drawing.edgeId}">
         x
       </button>

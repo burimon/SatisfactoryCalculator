@@ -24,6 +24,12 @@ export function bindPlannerInteractions({ controller, els, setStatus, state, vie
   }
 
   els.plannerConnectionLabels.addEventListener("click", (event) => {
+    const editButton = event.target.closest("[data-edit-edge-id]");
+    if (editButton) {
+      event.stopPropagation();
+      controller.openEdgePopup(editButton.dataset.editEdgeId, event.clientX, event.clientY);
+      return;
+    }
     const button = event.target.closest("[data-remove-edge-id]");
     if (!button) return;
     event.stopPropagation();
@@ -238,6 +244,7 @@ export function bindPlannerInteractions({ controller, els, setStatus, state, vie
       event.target.closest(".planner-node") ||
       event.target.closest(".planner-add-popup") ||
       event.target.closest(".planner-target-popup") ||
+      event.target.closest(".planner-edge-popup") ||
       event.target.closest(".planner-connection-label") ||
       event.target.closest("button, input, select, option, label")
     ) {
@@ -272,11 +279,13 @@ export function bindPlannerInteractions({ controller, els, setStatus, state, vie
     if (
       event.target.closest(".planner-node") ||
       event.target.closest(".planner-add-popup") ||
-      event.target.closest(".planner-target-popup")
+      event.target.closest(".planner-target-popup") ||
+      event.target.closest(".planner-edge-popup")
     ) {
       return;
     }
     controller.closeTargetPopup();
+    controller.closeEdgePopup();
     controller.openPlannerPopup(event.clientX, event.clientY);
   });
 

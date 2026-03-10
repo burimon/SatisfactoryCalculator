@@ -208,6 +208,32 @@
               </div>
             </div>
 
+            <div id="planner-edge-popup" class="planner-edge-popup" hidden>
+              <div class="planner-edge-popup-card">
+                <h3 id="planner-edge-popup-title">Connection Rate</h3>
+                <div class="field">
+                  <label for="planner-edge-popup-rate">Rate Override (/min)</label>
+                  <input
+                    id="planner-edge-popup-rate"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    placeholder="Auto"
+                    autocomplete="off"
+                  >
+                </div>
+                <div class="button-row">
+                  <button id="planner-edge-popup-save" type="button">Apply</button>
+                  <button id="planner-edge-popup-auto" type="button" class="secondary-button">
+                    Auto
+                  </button>
+                  <button id="planner-edge-popup-cancel" type="button" class="secondary-button">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div id="planner-add-popup" class="planner-add-popup" hidden>
               <div class="planner-add-popup-card">
                 <h3>Add Node</h3>

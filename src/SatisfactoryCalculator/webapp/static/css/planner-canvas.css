@@ -104,9 +104,9 @@
 .planner-connection-label {
   position: absolute;
   transform: translate(-50%, -50%);
-  width: 26px;
+  min-width: 26px;
   height: 26px;
-  padding: 0;
+  padding: 0 2px;
   border-radius: 999px;
   border: 1px solid rgba(140, 164, 184, 0.9);
   background: rgba(251, 253, 255, 0.96);
@@ -116,6 +116,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 2px;
+  white-space: nowrap;
 }
 
 .planner-connection-label.balanced {
@@ -130,6 +132,29 @@
   border-color: rgba(163, 71, 45, 0.42);
 }
 
+.connection-rate-button {
+  min-height: 0;
+  height: 20px;
+  padding: 0 4px;
+  box-shadow: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+}
+
+.connection-rate-button:hover {
+  background: rgba(24, 34, 44, 0.08);
+}
+
+.planner-connection-label.has-override .connection-rate-button {
+  color: var(--accent, #2d6da3);
+  text-decoration: underline;
+}
+
 .connection-delete-button {
   min-height: 0;
   width: 18px;
@@ -139,4 +164,33 @@
   border-radius: 999px;
   background: rgba(24, 34, 44, 0.08);
   color: var(--text);
+}
+
+.planner-edge-popup {
+  position: absolute;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.planner-edge-popup-card {
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 16px;
+  box-shadow: 0 8px 24px rgba(24, 34, 44, 0.18);
+  min-width: 180px;
+}
+
+.planner-edge-popup-card h3 {
+  margin: 0 0 8px 0;
+  font-size: 0.85rem;
+}
+
+.planner-edge-popup-card .field {
+  margin-bottom: 8px;
+}
+
+.planner-edge-popup-card .button-row {
+  display: flex;
+  gap: 6px;
 }

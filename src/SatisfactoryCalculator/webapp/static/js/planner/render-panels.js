@@ -83,6 +83,23 @@ export function renderPlannerPopup({ state, els }) {
   els.plannerPopupRecipe.value = state.planner.popup.selectedRecipeId ?? "";
 }
 
+export function renderEdgePopup({ state, els }) {
+  if (!state.planner.edgePopup.visible) {
+    els.plannerEdgePopup.hidden = true;
+    return;
+  }
+  const edge = state.planner.edges.find((e) => e.id === state.planner.edgePopup.edgeId);
+  if (!edge) {
+    els.plannerEdgePopup.hidden = true;
+    return;
+  }
+  els.plannerEdgePopup.hidden = false;
+  els.plannerEdgePopup.style.left = `${state.planner.edgePopup.screenX}px`;
+  els.plannerEdgePopup.style.top = `${state.planner.edgePopup.screenY}px`;
+  els.plannerEdgePopupTitle.textContent = `${itemNameById(state, edge.itemId)} Rate`;
+  els.plannerEdgePopupRate.value = edge.rateOverride != null ? formatAmount(edge.rateOverride) : "";
+}
+
 export function renderTargetPopup({ state, els }) {
   if (!state.planner.targetPopup.visible) {
     els.plannerTargetPopup.hidden = true;

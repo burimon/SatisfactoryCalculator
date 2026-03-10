@@ -110,6 +110,8 @@ export function calculateAllocatedRate(state, edge, computedMap) {
     const candidateComputed = computedMap.get(candidate.targetNodeId);
     return total + getItemRate(candidateComputed?.inputs ?? [], edge.itemId);
   }, 0);
+
+  const hasOverride = edge.rateOverride != null && edge.rateOverride >= 0;
   const incomingLimitedTotal = Math.min(totalIncomingSourceRate, targetRate);
   const outgoingLimitedTotal = Math.min(sourceRate, totalOutgoingTargetRate);
   const incomingShare = incomingEdges.length > 1 && totalIncomingSourceRate > 0
@@ -118,7 +120,7 @@ export function calculateAllocatedRate(state, edge, computedMap) {
   const outgoingShare = outgoingEdges.length > 1 && totalOutgoingTargetRate > 0
     ? outgoingLimitedTotal * (targetRate / totalOutgoingTargetRate)
     : sourceRate;
-  const allocatedRate = Math.min(incomingShare, outgoingShare);
+  const allocatedRate = hasOverride ? edge.rateOverride : Math.min(incomingShare, outgoingShare);
   const delta = sourceRate - targetRate;
 
   return {
@@ -131,6 +133,7 @@ export function calculateAllocatedRate(state, edge, computedMap) {
     incomingShare,
     outgoingShare,
     allocatedRate,
+    hasOverride,
     delta,
     status: delta > 0.01 ? "source_surplus" : delta < -0.01 ? "target_shortage" : "balanced",
   };

@@ -30,6 +30,27 @@ export function bindPlannerControls({ controller, els, setStatus, state }) {
     controller.closeTargetPopup();
   });
   els.plannerTargetPopupCancel.addEventListener("click", controller.closeTargetPopup);
+  els.plannerEdgePopupSave.addEventListener("click", () => {
+    const value = els.plannerEdgePopupRate.value.trim();
+    if (!state.planner.edgePopup.edgeId) return;
+    if (value === "") {
+      controller.updateEdgeRateOverride(state.planner.edgePopup.edgeId, null);
+    } else {
+      const rate = Number(value);
+      if (Number.isNaN(rate) || rate < 0) {
+        setStatus("Rate must be a non-negative number, or leave blank for auto.");
+        return;
+      }
+      controller.updateEdgeRateOverride(state.planner.edgePopup.edgeId, rate);
+    }
+    controller.closeEdgePopup();
+  });
+  els.plannerEdgePopupAuto.addEventListener("click", () => {
+    if (!state.planner.edgePopup.edgeId) return;
+    controller.updateEdgeRateOverride(state.planner.edgePopup.edgeId, null);
+    controller.closeEdgePopup();
+  });
+  els.plannerEdgePopupCancel.addEventListener("click", controller.closeEdgePopup);
   els.plannerZoomOut.addEventListener("click", () => {
     state.planner.zoom = Math.max(0.5, state.planner.zoom - 0.1);
     controller.renderSummary();

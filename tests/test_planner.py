@@ -3,6 +3,7 @@
 import sys
 import unittest
 from pathlib import Path
+from typing import cast
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -219,6 +220,7 @@ class PlannerTests(unittest.TestCase):
                     source_node_id="node_1",
                     target_node_id="node_2",
                     item_id="iron_ingot",
+                    rate_override=None,
                 ),
             ),
         )
@@ -365,6 +367,94 @@ class PlannerTests(unittest.TestCase):
         restored = workflow_from_payload(payload)
         self.assertEqual(restored.name, "Steel Expansion")
         self.assertEqual(restored.default_belt_capacity, 270.0)
+
+    def test_workflow_round_trip_preserves_edge_rate_override(self) -> None:
+        workflow = Workflow(
+            name="Override Test",
+            default_belt_capacity=60.0,
+            nodes=(
+                PlannerNode(
+                    id="node_1",
+                    recipe_id="iron_ingot",
+                    target_item_id="iron_ingot",
+                    target_rate_per_minute=30.0,
+                    belt_capacity=60.0,
+                    width=280.0,
+                    height=210.0,
+                    x=10.0,
+                    y=20.0,
+                ),
+                PlannerNode(
+                    id="node_2",
+                    recipe_id="iron_plate",
+                    target_item_id="iron_plate",
+                    target_rate_per_minute=20.0,
+                    belt_capacity=120.0,
+                    width=280.0,
+                    height=210.0,
+                    x=240.0,
+                    y=20.0,
+                ),
+            ),
+            edges=(
+                PlannerEdge(
+                    id="edge_1",
+                    source_node_id="node_1",
+                    target_node_id="node_2",
+                    item_id="iron_ingot",
+                    rate_override=25.0,
+                ),
+            ),
+        )
+        payload = workflow_to_payload(workflow)
+        edges = cast(list[dict[str, object]], payload["edges"])
+        self.assertEqual(edges[0]["rateOverride"], 25.0)
+        restored = workflow_from_payload(payload)
+        self.assertEqual(restored.edges[0].rate_override, 25.0)
+        self.assertEqual(restored, workflow)
+
+    def test_workflow_round_trip_preserves_null_edge_rate_override(self) -> None:
+        workflow = Workflow(
+            name="Null Override Test",
+            default_belt_capacity=60.0,
+            nodes=(
+                PlannerNode(
+                    id="node_1",
+                    recipe_id="iron_ingot",
+                    target_item_id="iron_ingot",
+                    target_rate_per_minute=30.0,
+                    belt_capacity=60.0,
+                    width=280.0,
+                    height=210.0,
+                    x=10.0,
+                    y=20.0,
+                ),
+                PlannerNode(
+                    id="node_2",
+                    recipe_id="iron_plate",
+                    target_item_id="iron_plate",
+                    target_rate_per_minute=20.0,
+                    belt_capacity=120.0,
+                    width=280.0,
+                    height=210.0,
+                    x=240.0,
+                    y=20.0,
+                ),
+            ),
+            edges=(
+                PlannerEdge(
+                    id="edge_1",
+                    source_node_id="node_1",
+                    target_node_id="node_2",
+                    item_id="iron_ingot",
+                ),
+            ),
+        )
+        payload = workflow_to_payload(workflow)
+        edges = cast(list[dict[str, object]], payload["edges"])
+        self.assertIsNone(edges[0]["rateOverride"])
+        restored = workflow_from_payload(payload)
+        self.assertIsNone(restored.edges[0].rate_override)
 
     def test_workflow_defaults_missing_node_dimensions(self) -> None:
         restored = workflow_from_payload(

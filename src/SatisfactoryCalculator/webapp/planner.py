@@ -31,6 +31,7 @@ class PlannerEdge:
     source_node_id: str
     target_node_id: str
     item_id: str
+    rate_override: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -225,6 +226,7 @@ def workflow_to_payload(workflow: Workflow) -> dict[str, object]:
                 "sourceNodeId": edge.source_node_id,
                 "targetNodeId": edge.target_node_id,
                 "itemId": edge.item_id,
+                "rateOverride": edge.rate_override,
             }
             for edge in workflow.edges
         ],
@@ -324,6 +326,7 @@ def _parse_edge_payload(payload: object) -> PlannerEdge:
             source_node_id=str(payload["sourceNodeId"]),
             target_node_id=str(payload["targetNodeId"]),
             item_id=str(payload["itemId"]),
+            rate_override=_parse_optional_float(payload.get("rateOverride")),
         )
     except KeyError as exc:
         raise WorkflowValidationError(f"Missing edge field: {exc.args[0]}") from exc

@@ -7,7 +7,7 @@ import {
 } from "../common/constants.js";
 import { recipeById } from "../common/catalog.js";
 import { getConnectionCompatibility } from "./computation.js";
-import { resetDragConnection } from "./state.js";
+import { createEdgePopup, resetDragConnection } from "./state.js";
 
 function normalizeOptionalNumber(value) {
   return value === null || value === undefined || value === "" ? null : Number(value);
@@ -48,6 +48,7 @@ export function workflowPayload(state) {
       sourceNodeId: edge.sourceNodeId,
       targetNodeId: edge.targetNodeId,
       itemId: edge.itemId,
+      rateOverride: edge.rateOverride ?? null,
     })),
   };
 }
@@ -121,6 +122,7 @@ export function validateWorkflowPayload(state, payload) {
       sourceNodeId: String(edge.sourceNodeId),
       targetNodeId: String(edge.targetNodeId),
       itemId: String(edge.itemId),
+      rateOverride: normalizeOptionalNumber(edge.rateOverride),
     });
   });
 }
@@ -136,10 +138,12 @@ export function importWorkflowIntoState(state, payload) {
     sourceNodeId: String(edge.sourceNodeId),
     targetNodeId: String(edge.targetNodeId),
     itemId: String(edge.itemId),
+    rateOverride: normalizeOptionalNumber(edge.rateOverride),
   }));
   state.planner.selectedNodeId = state.planner.nodes[0]?.id ?? null;
   state.planner.popup.visible = false;
   state.planner.targetPopup.visible = false;
+  state.planner.edgePopup = createEdgePopup();
   resetDragConnection(state.planner);
   state.planner.nextNodeNumber = Math.max(
     0,

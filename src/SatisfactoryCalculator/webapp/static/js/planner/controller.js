@@ -6,9 +6,9 @@ import { bindPlannerControls } from "./controls.js";
 import { bindPlannerInteractions } from "./interactions.js";
 import { renderPlannerEdges } from "./render-edges.js";
 import { renderPlannerNodes } from "./render-nodes.js";
-import { renderPlannerNetBalance, renderPlannerOptions, renderPlannerPopup, renderPlannerSummary, renderTargetPopup } from "./render-panels.js";
+import { renderEdgePopup, renderPlannerNetBalance, renderPlannerOptions, renderPlannerPopup, renderPlannerSummary, renderTargetPopup } from "./render-panels.js";
 import { createPlannerViewport } from "./viewport.js";
-import { createPlannerPopup, createTargetPopup, getPlannerNode, newEdgeId, newNodeId, resetDragConnection } from "./state.js";
+import { createEdgePopup, createPlannerPopup, createTargetPopup, getPlannerNode, newEdgeId, newNodeId, resetDragConnection } from "./state.js";
 import { importWorkflowIntoState, workflowPayload } from "./workflows.js";
 
 export function createPlannerController({ els, setMode, setStatus, state }) {
@@ -30,6 +30,7 @@ export function createPlannerController({ els, setMode, setStatus, state }) {
   function renderPopups() {
     renderPlannerPopup({ state, els });
     renderTargetPopup({ state, els });
+    renderEdgePopup({ state, els });
   }
 
   function renderEdges() {
@@ -77,6 +78,30 @@ export function createPlannerController({ els, setMode, setStatus, state }) {
     renderTargetPopup({ state, els });
   }
 
+  function closeEdgePopup() {
+    state.planner.edgePopup = createEdgePopup();
+    renderEdgePopup({ state, els });
+  }
+
+  function openEdgePopup(edgeId, clientX, clientY) {
+    const workspaceRect = els.plannerWorkspace.getBoundingClientRect();
+    state.planner.edgePopup.visible = true;
+    state.planner.edgePopup.edgeId = edgeId;
+    state.planner.edgePopup.screenX = Math.max(12, clientX - workspaceRect.left);
+    state.planner.edgePopup.screenY = Math.max(12, clientY - workspaceRect.top);
+    renderEdgePopup({ state, els });
+    els.plannerEdgePopupRate.focus();
+    els.plannerEdgePopupRate.select();
+  }
+
+  function updateEdgeRateOverride(edgeId, rateOverride) {
+    const edge = state.planner.edges.find((e) => e.id === edgeId);
+    if (edge) {
+      edge.rateOverride = rateOverride;
+      render();
+    }
+  }
+
   function openTargetPopup(nodeId, itemId, clientX, clientY) {
     const workspaceRect = els.plannerWorkspace.getBoundingClientRect();
     state.planner.targetPopup.visible = true;
@@ -99,6 +124,7 @@ export function createPlannerController({ els, setMode, setStatus, state }) {
     state.planner.nextEdgeNumber = 1;
     closePlannerPopup();
     closeTargetPopup();
+    closeEdgePopup();
     resetDragConnection(state.planner);
     renderOptions();
     render();
@@ -206,6 +232,7 @@ export function createPlannerController({ els, setMode, setStatus, state }) {
       sourceNodeId,
       targetNodeId,
       itemId,
+      rateOverride: null,
     });
     render();
     setStatus(`Connected ${itemNameById(state, itemId)} between nodes.`);
@@ -252,6 +279,7 @@ export function createPlannerController({ els, setMode, setStatus, state }) {
   bindPlannerControls({
     controller: {
       addPlannerNodeAt,
+      closeEdgePopup,
       closePlannerPopup,
       closeTargetPopup,
       exportWorkflow,
@@ -262,6 +290,7 @@ export function createPlannerController({ els, setMode, setStatus, state }) {
       renderOptions,
       renderSummary,
       resetPlannerWorkflow,
+      updateEdgeRateOverride,
       updatePlannerNode,
     },
     els,
@@ -270,10 +299,12 @@ export function createPlannerController({ els, setMode, setStatus, state }) {
   });
   bindPlannerInteractions({ controller: {
     addPlannerConnection,
+    closeEdgePopup,
     closePlannerPopup,
     closeTargetPopup,
     getPlannerNodeComputed: (node) => getPlannerNodeComputed(state, node),
     itemNameById: (itemId) => itemNameById(state, itemId),
+    openEdgePopup,
     openPlannerPopup,
     openTargetPopup,
     removePlannerConnection,
@@ -286,6 +317,7 @@ export function createPlannerController({ els, setMode, setStatus, state }) {
   }, els, setStatus, state, viewport });
 
   return {
+    closeEdgePopup,
     closePlannerPopup,
     closeTargetPopup,
     exportWorkflow,

@@ -21,6 +21,15 @@ export function createTargetPopup() {
   };
 }
 
+export function createEdgePopup() {
+  return {
+    visible: false,
+    edgeId: null,
+    screenX: 12,
+    screenY: 12,
+  };
+}
+
 export function createDragConnection() {
   return {
     active: false,
@@ -43,6 +52,7 @@ export function createPlannerState() {
     defaultBeltCapacity: 60,
     popup: createPlannerPopup(),
     targetPopup: createTargetPopup(),
+    edgePopup: createEdgePopup(),
     dragConnection: createDragConnection(),
     nodes: [],
     edges: [],
