@@ -43,12 +43,21 @@ class WebApiTests(unittest.TestCase):
         payloads = find_recipe_payloads_by_output("power")
         self.assertEqual(
             [payload["id"] for payload in payloads],
-            ["power_biomass", "power_solid_biofuel"],
+            ["power_biomass", "power_solid_biofuel", "power_coal"],
         )
 
     def test_find_recipe_payloads_by_output_returns_mining_payloads(self) -> None:
         payloads = find_recipe_payloads_by_output("iron_ore")
         self.assertEqual([payload["id"] for payload in payloads], ["mine_iron_ore"])
+
+    def test_get_recipe_payload_includes_water_extraction_recipe(self) -> None:
+        payload = get_recipe_payload("extract_water")
+        self.assertEqual(payload["name"], "Extract Water")
+        self.assertEqual(payload["inputs"], [])
+        self.assertEqual(
+            payload["outputs"],
+            [{"item": {"id": "water", "name": "Water"}, "amount": 2}],
+        )
 
     def test_get_recipe_payload_includes_tier_two_recipe(self) -> None:
         payload = get_recipe_payload("rotor")
@@ -63,6 +72,36 @@ class WebApiTests(unittest.TestCase):
         self.assertEqual(
             payload["outputs"],
             [{"item": {"id": "rotor", "name": "Rotor"}, "amount": 1}],
+        )
+
+    def test_get_recipe_payload_includes_tier_four_recipe(self) -> None:
+        payload = get_recipe_payload("automated_wiring")
+        self.assertEqual(payload["name"], "Automated Wiring")
+        self.assertEqual(
+            payload["inputs"],
+            [
+                {"item": {"id": "stator", "name": "Stator"}, "amount": 1},
+                {"item": {"id": "cable", "name": "Cable"}, "amount": 20},
+            ],
+        )
+        self.assertEqual(
+            payload["outputs"],
+            [{"item": {"id": "automated_wiring", "name": "Automated Wiring"}, "amount": 1}],
+        )
+
+    def test_get_recipe_payload_includes_coal_power_recipe(self) -> None:
+        payload = get_recipe_payload("power_coal")
+        self.assertEqual(payload["name"], "Power (Coal)")
+        self.assertEqual(
+            payload["inputs"],
+            [
+                {"item": {"id": "coal", "name": "Coal"}, "amount": 1},
+                {"item": {"id": "water", "name": "Water"}, "amount": 3},
+            ],
+        )
+        self.assertEqual(
+            payload["outputs"],
+            [{"item": {"id": "power", "name": "Power"}, "amount": 75}],
         )
 
     def test_recipe_and_item_lists_are_sorted_by_display_name(self) -> None:

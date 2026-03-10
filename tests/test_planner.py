@@ -99,12 +99,36 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(scaled["machine_count"], 3.0)
         self.assertEqual(scaled["outputs"]["iron_ore"], 180.0)
 
+    def test_scale_recipe_for_target_supports_water_extraction(self) -> None:
+        scaled = scale_recipe_for_target(get_recipe("extract_water"), "water", 240.0)
+        self.assertEqual(scaled["multiplier"], 2.0)
+        self.assertEqual(scaled["per_machine_rate"], 120.0)
+        self.assertEqual(scaled["machine_count"], 2.0)
+        self.assertEqual(scaled["outputs"]["water"], 240.0)
+
     def test_scale_recipe_for_target_supports_tier_two_assembler_recipes(self) -> None:
         scaled = scale_recipe_for_target(get_recipe("modular_frame"), "modular_frame", 4.0)
         self.assertEqual(scaled["multiplier"], 2.0)
         self.assertEqual(scaled["outputs"]["modular_frame"], 4.0)
         self.assertEqual(scaled["inputs"]["reinforced_iron_plate"], 6.0)
         self.assertEqual(scaled["inputs"]["iron_rod"], 24.0)
+
+    def test_scale_recipe_for_target_supports_tier_four_assembler_recipes(self) -> None:
+        scaled = scale_recipe_for_target(get_recipe("motor"), "motor", 10.0)
+        self.assertEqual(scaled["multiplier"], 2.0)
+        self.assertEqual(scaled["outputs"]["motor"], 10.0)
+        self.assertEqual(scaled["inputs"]["rotor"], 20.0)
+        self.assertEqual(scaled["inputs"]["stator"], 20.0)
+
+    def test_scale_recipe_for_target_supports_coal_power(self) -> None:
+        scaled = scale_recipe_for_target(get_recipe("power_coal"), "power", 150.0)
+        self.assertEqual(scaled["multiplier"], 2.0)
+        self.assertEqual(scaled["requested_target_rate"], 150.0)
+        self.assertEqual(scaled["per_machine_rate"], 75.0)
+        self.assertEqual(scaled["machine_count"], 2.0)
+        self.assertEqual(scaled["outputs"]["power"], 150.0)
+        self.assertEqual(scaled["inputs"]["coal"], 30.0)
+        self.assertEqual(scaled["inputs"]["water"], 90.0)
 
     def test_connection_imbalance_balanced(self) -> None:
         result = connection_imbalance(

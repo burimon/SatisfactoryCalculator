@@ -50,6 +50,14 @@ class RecipeRegistryTests(unittest.TestCase):
         recipes = find_recipes_by_output(Item.IRON_ORE)
         self.assertEqual([recipe.id for recipe in recipes], ["mine_iron_ore"])
 
+    def test_find_recipes_by_output_returns_mining_recipe_for_coal(self) -> None:
+        recipes = find_recipes_by_output(Item.COAL)
+        self.assertEqual([recipe.id for recipe in recipes], ["mine_coal"])
+
+    def test_find_recipes_by_output_returns_water_extraction_recipe(self) -> None:
+        recipes = find_recipes_by_output(Item.WATER)
+        self.assertEqual([recipe.id for recipe in recipes], ["extract_water"])
+
     def test_find_recipes_by_output_returns_all_biomass_variants(self) -> None:
         recipes = find_recipes_by_output(Item.BIOMASS)
         self.assertEqual(
@@ -70,7 +78,7 @@ class RecipeRegistryTests(unittest.TestCase):
         recipes = find_recipes_by_output(Item.POWER)
         self.assertEqual(
             [recipe.id for recipe in recipes],
-            ["power_biomass", "power_solid_biofuel"],
+            ["power_biomass", "power_solid_biofuel", "power_coal"],
         )
 
     def test_find_recipes_by_output_returns_tier_two_recipes(self) -> None:
@@ -86,6 +94,34 @@ class RecipeRegistryTests(unittest.TestCase):
         self.assertEqual(
             [recipe.id for recipe in find_recipes_by_output(Item.SMART_PLATING)],
             ["smart_plating"],
+        )
+
+    def test_find_recipes_by_output_returns_tier_three_and_four_recipes(self) -> None:
+        self.assertEqual(
+            [recipe.id for recipe in find_recipes_by_output(Item.STEEL_INGOT)],
+            ["steel_ingot"],
+        )
+        self.assertEqual(
+            [recipe.id for recipe in find_recipes_by_output(Item.STEEL_BEAM)],
+            ["steel_beam"],
+        )
+        self.assertEqual(
+            [recipe.id for recipe in find_recipes_by_output(Item.STEEL_PIPE)],
+            ["steel_pipe"],
+        )
+        self.assertEqual(
+            [recipe.id for recipe in find_recipes_by_output(Item.VERSATILE_FRAMEWORK)],
+            ["versatile_framework"],
+        )
+        self.assertEqual(
+            [recipe.id for recipe in find_recipes_by_output(Item.ENCASED_INDUSTRIAL_BEAM)],
+            ["encased_industrial_beam"],
+        )
+        self.assertEqual([recipe.id for recipe in find_recipes_by_output(Item.STATOR)], ["stator"])
+        self.assertEqual([recipe.id for recipe in find_recipes_by_output(Item.MOTOR)], ["motor"])
+        self.assertEqual(
+            [recipe.id for recipe in find_recipes_by_output(Item.AUTOMATED_WIRING)],
+            ["automated_wiring"],
         )
 
 

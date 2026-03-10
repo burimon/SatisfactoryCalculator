@@ -12,9 +12,12 @@ class Item(str, Enum):
     POWER = "power"
     IRON_ORE = "iron_ore"
     COPPER_ORE = "copper_ore"
+    COAL = "coal"
+    WATER = "water"
     LIMESTONE = "limestone"
     IRON_INGOT = "iron_ingot"
     COPPER_INGOT = "copper_ingot"
+    STEEL_INGOT = "steel_ingot"
     CONCRETE = "concrete"
     IRON_PLATE = "iron_plate"
     IRON_ROD = "iron_rod"
@@ -22,10 +25,17 @@ class Item(str, Enum):
     CABLE = "cable"
     COPPER_SHEET = "copper_sheet"
     SCREW = "screw"
+    STEEL_BEAM = "steel_beam"
+    STEEL_PIPE = "steel_pipe"
     REINFORCED_IRON_PLATE = "reinforced_iron_plate"
     ROTOR = "rotor"
     MODULAR_FRAME = "modular_frame"
     SMART_PLATING = "smart_plating"
+    VERSATILE_FRAMEWORK = "versatile_framework"
+    ENCASED_INDUSTRIAL_BEAM = "encased_industrial_beam"
+    STATOR = "stator"
+    MOTOR = "motor"
+    AUTOMATED_WIRING = "automated_wiring"
 
 
 ItemAmounts = dict[Item, float]
@@ -58,6 +68,22 @@ RECIPES: dict[str, Recipe] = {
         outputs={Item.COPPER_ORE: 1},
         duration_seconds=1.0,
         building="miner",
+    ),
+    "mine_coal": Recipe(
+        id="mine_coal",
+        name="Mine Coal",
+        inputs={},
+        outputs={Item.COAL: 1},
+        duration_seconds=1.0,
+        building="miner",
+    ),
+    "extract_water": Recipe(
+        id="extract_water",
+        name="Extract Water",
+        inputs={},
+        outputs={Item.WATER: 2},
+        duration_seconds=1.0,
+        building="water_extractor",
     ),
     "mine_limestone": Recipe(
         id="mine_limestone",
@@ -123,6 +149,14 @@ RECIPES: dict[str, Recipe] = {
         duration_seconds=15.0,
         building="biomass_burner",
     ),
+    "power_coal": Recipe(
+        id="power_coal",
+        name="Power (Coal)",
+        inputs={Item.COAL: 1, Item.WATER: 3},
+        outputs={Item.POWER: 75},
+        duration_seconds=4.0,
+        building="coal_generator",
+    ),
     "iron_ingot": Recipe(
         id="iron_ingot",
         name="Iron Ingot",
@@ -138,6 +172,14 @@ RECIPES: dict[str, Recipe] = {
         outputs={Item.COPPER_INGOT: 1},
         duration_seconds=2.0,
         building="smelter",
+    ),
+    "steel_ingot": Recipe(
+        id="steel_ingot",
+        name="Steel Ingot",
+        inputs={Item.IRON_ORE: 3, Item.COAL: 3},
+        outputs={Item.STEEL_INGOT: 3},
+        duration_seconds=4.0,
+        building="foundry",
     ),
     "concrete": Recipe(
         id="concrete",
@@ -195,6 +237,22 @@ RECIPES: dict[str, Recipe] = {
         duration_seconds=6.0,
         building="constructor",
     ),
+    "steel_beam": Recipe(
+        id="steel_beam",
+        name="Steel Beam",
+        inputs={Item.STEEL_INGOT: 4},
+        outputs={Item.STEEL_BEAM: 1},
+        duration_seconds=4.0,
+        building="constructor",
+    ),
+    "steel_pipe": Recipe(
+        id="steel_pipe",
+        name="Steel Pipe",
+        inputs={Item.STEEL_INGOT: 3},
+        outputs={Item.STEEL_PIPE: 2},
+        duration_seconds=6.0,
+        building="constructor",
+    ),
     "reinforced_iron_plate": Recipe(
         id="reinforced_iron_plate",
         name="Reinforced Iron Plate",
@@ -225,6 +283,46 @@ RECIPES: dict[str, Recipe] = {
         inputs={Item.REINFORCED_IRON_PLATE: 1, Item.ROTOR: 1},
         outputs={Item.SMART_PLATING: 1},
         duration_seconds=30.0,
+        building="assembler",
+    ),
+    "versatile_framework": Recipe(
+        id="versatile_framework",
+        name="Versatile Framework",
+        inputs={Item.MODULAR_FRAME: 1, Item.STEEL_BEAM: 12},
+        outputs={Item.VERSATILE_FRAMEWORK: 2},
+        duration_seconds=24.0,
+        building="assembler",
+    ),
+    "encased_industrial_beam": Recipe(
+        id="encased_industrial_beam",
+        name="Encased Industrial Beam",
+        inputs={Item.STEEL_BEAM: 3, Item.CONCRETE: 6},
+        outputs={Item.ENCASED_INDUSTRIAL_BEAM: 1},
+        duration_seconds=10.0,
+        building="assembler",
+    ),
+    "stator": Recipe(
+        id="stator",
+        name="Stator",
+        inputs={Item.STEEL_PIPE: 3, Item.WIRE: 8},
+        outputs={Item.STATOR: 1},
+        duration_seconds=12.0,
+        building="assembler",
+    ),
+    "motor": Recipe(
+        id="motor",
+        name="Motor",
+        inputs={Item.ROTOR: 2, Item.STATOR: 2},
+        outputs={Item.MOTOR: 1},
+        duration_seconds=12.0,
+        building="assembler",
+    ),
+    "automated_wiring": Recipe(
+        id="automated_wiring",
+        name="Automated Wiring",
+        inputs={Item.STATOR: 1, Item.CABLE: 20},
+        outputs={Item.AUTOMATED_WIRING: 1},
+        duration_seconds=24.0,
         building="assembler",
     ),
 }
