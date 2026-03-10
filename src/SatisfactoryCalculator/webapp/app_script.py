@@ -51,6 +51,11 @@ SCRIPT = r"""
         },
         nodes: [],
         edges: [],
+        netBalanceSort: {
+          key: "item",
+          direction: "asc"
+        },
+        hideBalancedNetItems: false,
         panX: 0,
         panY: 0,
         zoom: 1,
@@ -108,6 +113,7 @@ SCRIPT = r"""
       plannerPopupCancel: document.getElementById("planner-popup-cancel"),
       plannerEmpty: document.getElementById("planner-empty"),
       plannerSummary: document.getElementById("planner-summary"),
+      plannerNetBalance: document.getElementById("planner-net-balance"),
       plannerZoomOut: document.getElementById("planner-zoom-out"),
       plannerZoomReset: document.getElementById("planner-zoom-reset"),
       plannerZoomIn: document.getElementById("planner-zoom-in"),
@@ -502,6 +508,179 @@ SCRIPT = r"""
 
     function getItemRate(entries, itemId) {
       return entries.find((entry) => entry.item.id === itemId)?.amount_per_minute ?? 0;
+    }
+
+    function plannerNetBalanceClass(netRate) {
+      if (netRate > 0.01) return "net-positive";
+      if (netRate < -0.01) return "net-negative";
+      return "net-neutral";
+    }
+
+    function isPlannerNetBalanced(netRate) {
+      return Math.abs(netRate) <= 0.01;
+    }
+
+    function plannerNetBalanceValue(netRate) {
+      return `${netRate > 0.01 ? "+" : ""}${formatAmount(netRate)}`;
+    }
+
+    function buildPlannerNetBalanceRows(computedMap = null) {
+      const plannerComputed = computedMap ?? buildPlannerComputedMap();
+      const totals = new Map();
+      const ensureRow = (item) => {
+        const existing = totals.get(item.id);
+        if (existing) return existing;
+        const row = {
+          itemId: item.id,
+          itemName: item.name,
+          producedRate: 0,
+          consumedRate: 0,
+          netRate: 0
+        };
+        totals.set(item.id, row);
+        return row;
+      };
+
+      state.planner.nodes.forEach((node) => {
+        const computed = plannerComputed.get(node.id);
+        if (!computed) return;
+        computed.outputs.forEach((entry) => {
+          const row = ensureRow(entry.item);
+          row.producedRate += entry.amount_per_minute;
+        });
+        computed.inputs.forEach((entry) => {
+          const row = ensureRow(entry.item);
+          row.consumedRate += entry.amount_per_minute;
+        });
+      });
+
+      return [...totals.values()]
+        .map((row) => ({
+          ...row,
+          netRate: row.producedRate - row.consumedRate
+        }))
+        .sort((left, right) => {
+          const direction = state.planner.netBalanceSort.direction === "asc" ? 1 : -1;
+          if (state.planner.netBalanceSort.key === "net") {
+            return (
+              direction * (left.netRate - right.netRate) ||
+              left.itemName.localeCompare(right.itemName)
+            );
+          }
+          return (
+            direction * left.itemName.localeCompare(right.itemName) ||
+            right.netRate - left.netRate
+          );
+        });
+    }
+
+    function setPlannerNetBalanceSort(key) {
+      if (state.planner.netBalanceSort.key === key) {
+        state.planner.netBalanceSort.direction =
+          state.planner.netBalanceSort.direction === "asc" ? "desc" : "asc";
+      } else {
+        state.planner.netBalanceSort.key = key;
+        state.planner.netBalanceSort.direction = key === "net" ? "desc" : "asc";
+      }
+      renderPlannerNetBalance();
+    }
+
+    function plannerSortIndicator(key) {
+      if (state.planner.netBalanceSort.key !== key) {
+        return "↕";
+      }
+      return state.planner.netBalanceSort.direction === "asc" ? "↑" : "↓";
+    }
+
+    function renderPlannerNetBalance() {
+      const nodeCount = state.planner.nodes.length;
+      if (!nodeCount) {
+        els.plannerNetBalance.innerHTML = '<div class="empty">Add nodes to see net balance.</div>';
+        return;
+      }
+
+      const rows = buildPlannerNetBalanceRows();
+      const visibleRows = state.planner.hideBalancedNetItems
+        ? rows.filter((row) => !isPlannerNetBalanced(row.netRate))
+        : rows;
+      els.plannerNetBalance.innerHTML = `
+        <div class="planner-net-balance-toolbar">
+          <label class="planner-net-balance-filter">
+            <input
+              id="planner-hide-balanced-net-items"
+              type="checkbox"
+              ${state.planner.hideBalancedNetItems ? "checked" : ""}
+            >
+            Hide balanced
+          </label>
+          <span class="planner-net-balance-count">
+            Showing ${visibleRows.length} of ${rows.length} item(s)
+          </span>
+        </div>
+        <div class="planner-net-balance-table-wrap">
+          <table class="planner-net-balance-table">
+            <thead>
+              <tr>
+                <th>
+                  <button
+                    type="button"
+                    class="planner-sort-button ${
+                      state.planner.netBalanceSort.key === "item" ? "active" : ""
+                    }"
+                    data-net-sort-key="item"
+                  >
+                    Item
+                    <span class="planner-sort-indicator">${plannerSortIndicator("item")}</span>
+                  </button>
+                </th>
+                <th>Produced / min</th>
+                <th>Consumed / min</th>
+                <th>
+                  <button
+                    type="button"
+                    class="planner-sort-button ${
+                      state.planner.netBalanceSort.key === "net" ? "active" : ""
+                    }"
+                    data-net-sort-key="net"
+                  >
+                    Net / min
+                    <span class="planner-sort-indicator">${plannerSortIndicator("net")}</span>
+                  </button>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              ${visibleRows.length ? visibleRows.map((row) => `
+                <tr>
+                  <td class="planner-net-balance-item">${row.itemName}</td>
+                  <td class="planner-net-balance-number">${formatAmount(row.producedRate)}</td>
+                  <td class="planner-net-balance-number">${formatAmount(row.consumedRate)}</td>
+                  <td class="planner-net-balance-number ${plannerNetBalanceClass(row.netRate)}">
+                    ${plannerNetBalanceValue(row.netRate)}
+                  </td>
+                </tr>
+              `).join("") : `
+                <tr>
+                  <td colspan="4" class="empty">No unbalanced items match the current filter.</td>
+                </tr>
+              `}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      els.plannerNetBalance.querySelector("#planner-hide-balanced-net-items")?.addEventListener(
+        "change",
+        (event) => {
+          state.planner.hideBalancedNetItems = event.target.checked;
+          renderPlannerNetBalance();
+        }
+      );
+      els.plannerNetBalance.querySelectorAll("[data-net-sort-key]").forEach((button) => {
+        button.addEventListener("click", () => {
+          setPlannerNetBalanceSort(button.dataset.netSortKey);
+        });
+      });
     }
 
     function getConnectionCompatibility(sourceNodeId, targetNodeId, computedMap = null) {
@@ -1400,6 +1579,7 @@ SCRIPT = r"""
         `translate(${state.planner.panX}px, ${state.planner.panY}px) scale(${state.planner.zoom})`;
       els.plannerZoomReset.textContent = `${Math.round(state.planner.zoom * 100)}%`;
       renderPlannerRecipeCandidates();
+      renderPlannerNetBalance();
       renderPlannerNodes();
       renderPlannerEdges();
       renderPlannerPopup();

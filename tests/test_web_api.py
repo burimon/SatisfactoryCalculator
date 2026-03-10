@@ -10,6 +10,7 @@ from SatisfactoryCalculator.webapp.api import (
     list_items,
     list_recipes,
 )
+from SatisfactoryCalculator.webapp.index_html import HTML
 
 
 class WebApiTests(unittest.TestCase):
@@ -69,6 +70,12 @@ class WebApiTests(unittest.TestCase):
         item_names = [payload["name"] for payload in list_items()]
         self.assertEqual(recipe_names, sorted(recipe_names))
         self.assertEqual(item_names, sorted(item_names))
+
+    def test_html_includes_planner_net_balance_table_mount(self) -> None:
+        self.assertIn('id="planner-net-balance"', HTML)
+        self.assertIn('data-net-sort-key="item"', HTML)
+        self.assertIn('data-net-sort-key="net"', HTML)
+        self.assertIn("Hide balanced", HTML)
 
 
 if __name__ == "__main__":
