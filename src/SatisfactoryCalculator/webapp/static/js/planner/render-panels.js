@@ -17,16 +17,6 @@ function plannerSortIndicator(sortState, key) {
 }
 
 export function renderPlannerOptions({ state, els }) {
-  els.plannerOutputOptions.innerHTML = "";
-  state.items.forEach((item) => {
-    const option = document.createElement("option");
-    option.value = item.name;
-    els.plannerOutputOptions.appendChild(option);
-  });
-
-  const plannerItem = itemById(state, state.planner.selectedOutputItemId);
-  els.plannerOutputInput.value = plannerItem?.name ?? "";
-
   els.plannerDefaultBelt.innerHTML = `
     <option value="">Unlimited</option>
     ${BELT_CAPACITY_OPTIONS.map((capacity) => `
@@ -60,30 +50,13 @@ export function renderPlannerOptions({ state, els }) {
   els.plannerWorkflowDirectory.textContent = state.planner.workflowDirectory
     ? `Workflow library: ${state.planner.workflowDirectory}`
     : "Workflow library unavailable.";
-  els.plannerPopupOutputOptions.innerHTML = els.plannerOutputOptions.innerHTML;
-}
 
-export function renderPlannerRecipeCandidates({ state, els, onAddNode }) {
-  const targetItemId = state.planner.selectedOutputItemId;
-  els.plannerRecipeResults.innerHTML = state.planner.candidateRecipes.length
-    ? state.planner.candidateRecipes.map((recipe) => `
-        <button
-          class="result-card"
-          data-add-recipe-id="${recipe.id}"
-          data-target-item-id="${targetItemId}"
-        >
-          <div class="title">${recipe.name}</div>
-          <div class="meta">
-            ${titleCase(recipe.building || "unknown")} | target ${itemNameById(state, targetItemId)}
-          </div>
-        </button>
-      `).join("")
-    : '<div class="empty">No producer recipes found.</div>';
-
-  els.plannerRecipeResults.querySelectorAll("[data-add-recipe-id]").forEach((button) => {
-    button.addEventListener("click", () => {
-      onAddNode(button.dataset.addRecipeId, button.dataset.targetItemId);
-    });
+  // Populate popup datalist from items
+  els.plannerPopupOutputOptions.innerHTML = "";
+  state.items.forEach((item) => {
+    const option = document.createElement("option");
+    option.value = item.name;
+    els.plannerPopupOutputOptions.appendChild(option);
   });
 }
 
@@ -127,7 +100,7 @@ export function renderTargetPopup({ state, els }) {
   els.plannerTargetPopupRate.value = formatAmount(node.targetRatePerMinute);
 }
 
-export function renderPlannerNetBalance({ state, els, onSort, onToggleHideBalanced }) {
+export function renderPlannerNetBalance({ state, els, onSort }) {
   if (!state.planner.nodes.length) {
     els.plannerNetBalance.innerHTML = '<div class="empty">Add nodes to see net balance.</div>';
     return;
@@ -137,76 +110,61 @@ export function renderPlannerNetBalance({ state, els, onSort, onToggleHideBalanc
   const visibleRows = state.planner.hideBalancedNetItems
     ? rows.filter((row) => !isPlannerNetBalanced(row.netRate))
     : rows;
+
+  // Sync the summary checkbox with state
+  els.plannerHideBalancedToggle.checked = state.planner.hideBalancedNetItems;
+
   els.plannerNetBalance.innerHTML = `
-    <div class="planner-net-balance-toolbar">
-      <label class="planner-net-balance-filter">
-        <input
-          id="planner-hide-balanced-net-items"
-          type="checkbox"
-          ${state.planner.hideBalancedNetItems ? "checked" : ""}
-        >
-        Hide balanced
-      </label>
-      <span class="planner-net-balance-count">
-        Showing ${visibleRows.length} of ${rows.length} item(s)
-      </span>
-    </div>
-    <div class="planner-net-balance-table-wrap">
-      <table class="planner-net-balance-table">
-        <thead>
+    <table class="planner-net-balance-table">
+      <thead>
+        <tr>
+          <th>
+            <button
+              type="button"
+              class="planner-sort-button ${state.planner.netBalanceSort.key === "item" ? "active" : ""}"
+              data-net-sort-key="item"
+            >
+              Item
+              <span class="planner-sort-indicator">
+                ${plannerSortIndicator(state.planner.netBalanceSort, "item")}
+              </span>
+            </button>
+          </th>
+          <th class="planner-net-col-number">Prod</th>
+          <th class="planner-net-col-number">Cons</th>
+          <th class="planner-net-col-number">
+            <button
+              type="button"
+              class="planner-sort-button ${state.planner.netBalanceSort.key === "net" ? "active" : ""}"
+              data-net-sort-key="net"
+            >
+              Net
+              <span class="planner-sort-indicator">
+                ${plannerSortIndicator(state.planner.netBalanceSort, "net")}
+              </span>
+            </button>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        ${visibleRows.length ? visibleRows.map((row) => `
           <tr>
-            <th>
-              <button
-                type="button"
-                class="planner-sort-button ${state.planner.netBalanceSort.key === "item" ? "active" : ""}"
-                data-net-sort-key="item"
-              >
-                Item
-                <span class="planner-sort-indicator">
-                  ${plannerSortIndicator(state.planner.netBalanceSort, "item")}
-                </span>
-              </button>
-            </th>
-            <th>Produced / min</th>
-            <th>Consumed / min</th>
-            <th>
-              <button
-                type="button"
-                class="planner-sort-button ${state.planner.netBalanceSort.key === "net" ? "active" : ""}"
-                data-net-sort-key="net"
-              >
-                Net / min
-                <span class="planner-sort-indicator">
-                  ${plannerSortIndicator(state.planner.netBalanceSort, "net")}
-                </span>
-              </button>
-            </th>
+            <td class="planner-net-balance-item">${row.itemName}</td>
+            <td class="planner-net-balance-number planner-net-col-number">${formatAmount(row.producedRate)}</td>
+            <td class="planner-net-balance-number planner-net-col-number">${formatAmount(row.consumedRate)}</td>
+            <td class="planner-net-balance-number planner-net-col-number planner-net-col-bold ${plannerNetBalanceClass(row.netRate)}">
+              ${plannerNetBalanceValue(row.netRate)}
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          ${visibleRows.length ? visibleRows.map((row) => `
-            <tr>
-              <td class="planner-net-balance-item">${row.itemName}</td>
-              <td class="planner-net-balance-number">${formatAmount(row.producedRate)}</td>
-              <td class="planner-net-balance-number">${formatAmount(row.consumedRate)}</td>
-              <td class="planner-net-balance-number ${plannerNetBalanceClass(row.netRate)}">
-                ${plannerNetBalanceValue(row.netRate)}
-              </td>
-            </tr>
-          `).join("") : `
-            <tr>
-              <td colspan="4" class="empty">No unbalanced items match the current filter.</td>
-            </tr>
-          `}
-        </tbody>
-      </table>
-    </div>
+        `).join("") : `
+          <tr>
+            <td colspan="4" class="empty">No unbalanced items match the current filter.</td>
+          </tr>
+        `}
+      </tbody>
+    </table>
   `;
 
-  els.plannerNetBalance.querySelector("#planner-hide-balanced-net-items")?.addEventListener(
-    "change",
-    (event) => onToggleHideBalanced(event.target.checked)
-  );
   els.plannerNetBalance.querySelectorAll("[data-net-sort-key]").forEach((button) => {
     button.addEventListener("click", () => {
       onSort(button.dataset.netSortKey);

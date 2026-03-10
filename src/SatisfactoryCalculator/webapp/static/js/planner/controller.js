@@ -6,7 +6,7 @@ import { bindPlannerControls } from "./controls.js";
 import { bindPlannerInteractions } from "./interactions.js";
 import { renderPlannerEdges } from "./render-edges.js";
 import { renderPlannerNodes } from "./render-nodes.js";
-import { renderPlannerNetBalance, renderPlannerOptions, renderPlannerPopup, renderPlannerRecipeCandidates, renderPlannerSummary, renderTargetPopup } from "./render-panels.js";
+import { renderPlannerNetBalance, renderPlannerOptions, renderPlannerPopup, renderPlannerSummary, renderTargetPopup } from "./render-panels.js";
 import { createPlannerViewport } from "./viewport.js";
 import { createPlannerPopup, createTargetPopup, getPlannerNode, newEdgeId, newNodeId, resetDragConnection } from "./state.js";
 import { importWorkflowIntoState, workflowPayload } from "./workflows.js";
@@ -40,19 +40,10 @@ export function createPlannerController({ els, setMode, setStatus, state }) {
 
   function render() {
     renderSummary();
-    renderPlannerRecipeCandidates({
-      state,
-      els,
-      onAddNode: (recipeId, targetItemId) => addPlannerNode(recipeId, targetItemId),
-    });
     renderPlannerNetBalance({
       state,
       els,
       onSort: setPlannerNetBalanceSort,
-      onToggleHideBalanced: (value) => {
-        state.planner.hideBalancedNetItems = value;
-        render();
-      },
     });
     const computedMap = buildPlannerComputedMap(state);
     const allocationMap = buildPlannerAllocationMap(state, computedMap);
@@ -130,21 +121,6 @@ export function createPlannerController({ els, setMode, setStatus, state }) {
     renderOptions();
   }
 
-  async function findPlannerRecipes() {
-    const item = findItemByName(state, els.plannerOutputInput.value);
-    if (!item) {
-      setStatus("Choose a valid planner output item from the list.");
-      return;
-    }
-    state.planner.selectedOutputItemId = item.id;
-    renderOptions();
-    state.planner.candidateRecipes = await fetchJson(`/api/recipes/by-output/${item.id}`);
-    render();
-    setStatus(
-      `Found ${state.planner.candidateRecipes.length} planner recipe option(s) for ${item.name}.`
-    );
-  }
-
   async function findPlannerPopupRecipes() {
     const item = findItemByName(state, els.plannerPopupOutputInput.value);
     if (!item) {
@@ -155,10 +131,6 @@ export function createPlannerController({ els, setMode, setStatus, state }) {
     state.planner.popup.candidateRecipes = await fetchJson(`/api/recipes/by-output/${item.id}`);
     state.planner.popup.selectedRecipeId = state.planner.popup.candidateRecipes[0]?.id ?? null;
     renderPlannerPopup({ state, els });
-  }
-
-  function addPlannerNode(recipeId, targetItemId) {
-    addPlannerNodeAt(recipeId, targetItemId, null, null);
   }
 
   function addPlannerNodeAt(recipeId, targetItemId, canvasX, canvasY) {
@@ -284,7 +256,6 @@ export function createPlannerController({ els, setMode, setStatus, state }) {
       closeTargetPopup,
       exportWorkflow,
       findPlannerPopupRecipes,
-      findPlannerRecipes,
       importSelectedWorkflow,
       refreshWorkflows,
       render,
@@ -319,7 +290,6 @@ export function createPlannerController({ els, setMode, setStatus, state }) {
     closeTargetPopup,
     exportWorkflow,
     findPlannerPopupRecipes,
-    findPlannerRecipes,
     getPlannerNodeComputed: (node) => getPlannerNodeComputed(state, node),
     importSelectedWorkflow,
     itemNameById: (itemId) => itemNameById(state, itemId),

@@ -1,5 +1,4 @@
 export function bindPlannerControls({ controller, els, setStatus, state }) {
-  els.plannerSearchButton.addEventListener("click", () => void controller.findPlannerRecipes());
   els.plannerPopupSearch.addEventListener("click", () => void controller.findPlannerPopupRecipes());
   els.plannerPopupRecipe.addEventListener("change", () => {
     state.planner.popup.selectedRecipeId = els.plannerPopupRecipe.value || null;
@@ -81,5 +80,14 @@ export function bindPlannerControls({ controller, els, setStatus, state }) {
     } catch (error) {
       setStatus(`Failed to import workflow: ${error.message}`);
     }
+  });
+  els.plannerSidebarToggle.addEventListener("click", () => {
+    state.planner.sidebarCollapsed = !state.planner.sidebarCollapsed;
+    els.plannerSidebar.classList.toggle("sidebar-collapsed", state.planner.sidebarCollapsed);
+    els.plannerSidebarToggle.textContent = state.planner.sidebarCollapsed ? "\u203a" : "\u2039";
+  });
+  els.plannerHideBalancedToggle.addEventListener("change", (event) => {
+    state.planner.hideBalancedNetItems = event.target.checked;
+    controller.render();
   });
 }

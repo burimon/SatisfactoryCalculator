@@ -98,78 +98,61 @@
     <section id="planner-view" class="mode-view">
       <section class="planner-layout">
         <section class="panel planner-sidebar">
-          <h2>Planner Controls</h2>
-          <p class="subtext">
-            Build a workflow from output items, connect nodes by matching item flow,
-            and export the result.
-          </p>
+          <button id="planner-sidebar-toggle" type="button" class="planner-sidebar-toggle"
+            title="Toggle sidebar">&lsaquo;</button>
 
-          <div class="planner-section">
-            <h3>Add Node</h3>
-            <div class="field">
-              <label for="planner-default-belt">Global Belt Limit</label>
-              <select id="planner-default-belt"></select>
-            </div>
-            <div class="field">
-              <label for="planner-output-input">Output Item</label>
-              <input
-                id="planner-output-input"
-                list="planner-output-options"
-                type="search"
-                autocomplete="off"
-              >
-              <datalist id="planner-output-options"></datalist>
-            </div>
-            <div class="stack-gap">
-              <button id="planner-search-button" type="button">Find Producer Recipes</button>
-            </div>
-            <div id="planner-recipe-results" class="results-list compact-results"></div>
-          </div>
-
-          <div class="planner-section">
-            <h3>Workflow</h3>
-            <div class="field">
-              <label for="planner-workflow-name">Workflow Name</label>
-              <input
-                id="planner-workflow-name"
-                type="text"
-                maxlength="80"
-                placeholder="My factory plan"
-                autocomplete="off"
-              >
-            </div>
-            <div class="field">
-              <label for="planner-saved-workflows">Saved Workflows</label>
-              <select id="planner-saved-workflows"></select>
-            </div>
-            <div id="planner-workflow-directory" class="planner-path"></div>
-            <div class="button-row">
-              <button id="new-workflow-button" type="button" class="secondary-button">
-                New Plan
-              </button>
-              <button id="export-workflow-button" type="button">Export JSON</button>
-              <button id="import-workflow-button" type="button" class="secondary-button">
-                Import JSON
-              </button>
-            </div>
-            <div class="stack-gap">
-              <button id="planner-refresh-workflows" type="button" class="secondary-button">
-                Refresh Saved Workflows
-              </button>
-            </div>
-          </div>
-
-          <section class="planner-net-balance-section">
-            <div class="planner-net-balance-header">
-              <div>
-                <h3>Plan Net Balance</h3>
-                <p class="subtext planner-net-balance-subtext">
-                  Combined output minus input rate across the full workflow.
-                </p>
+          <div class="planner-sidebar-content">
+            <details class="planner-details" open>
+              <summary>Workflow</summary>
+              <div class="planner-details-body">
+                <div class="field">
+                  <label for="planner-default-belt">Global Belt Limit</label>
+                  <select id="planner-default-belt"></select>
+                </div>
+                <div class="field">
+                  <label for="planner-workflow-name">Workflow Name</label>
+                  <input
+                    id="planner-workflow-name"
+                    type="text"
+                    maxlength="80"
+                    placeholder="My factory plan"
+                    autocomplete="off"
+                  >
+                </div>
+                <div class="field">
+                  <label for="planner-saved-workflows">Saved Workflows</label>
+                  <select id="planner-saved-workflows"></select>
+                </div>
+                <div id="planner-workflow-directory" class="planner-path"></div>
+                <div class="button-row">
+                  <button id="new-workflow-button" type="button" class="secondary-button">
+                    New Plan
+                  </button>
+                  <button id="export-workflow-button" type="button">Export JSON</button>
+                  <button id="import-workflow-button" type="button" class="secondary-button">
+                    Import JSON
+                  </button>
+                </div>
+                <div class="stack-gap">
+                  <button id="planner-refresh-workflows" type="button" class="secondary-button">
+                    Refresh Saved Workflows
+                  </button>
+                </div>
               </div>
-            </div>
-            <div id="planner-net-balance" class="planner-net-balance"></div>
-          </section>
+            </details>
+
+            <details class="planner-details" open>
+              <summary>
+                Net Balance
+                <label class="planner-net-balance-summary-filter" onclick="event.stopPropagation()">
+                  <input id="planner-hide-balanced-toggle" type="checkbox"> Hide balanced
+                </label>
+              </summary>
+              <div class="planner-details-body">
+                <div id="planner-net-balance" class="planner-net-balance"></div>
+              </div>
+            </details>
+          </div>
         </section>
 
         <section class="panel planner-workspace-panel">
@@ -199,7 +182,7 @@
                 <div id="planner-node-layer" class="planner-node-layer"></div>
               </div>
               <div id="planner-empty" class="planner-empty">
-                Add a node from an output item to start a workflow.
+                Right-click on canvas to add a node.
               </div>
             </div>
 

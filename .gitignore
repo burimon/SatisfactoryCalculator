@@ -210,3 +210,4 @@ __marimo__/
 # ad hoc
 scripts/
 .codex-temp/
+.claude/

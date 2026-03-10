@@ -1,17 +1,111 @@
 .planner-layout {
   display: grid;
-  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 20px;
 }
 
-.planner-section + .planner-section {
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px solid var(--line);
+.planner-sidebar {
+  width: 340px;
+  position: relative;
+  transition: width 0.2s ease;
 }
 
-.compact-results .result-card {
+.planner-sidebar.sidebar-collapsed {
+  width: 40px;
+  min-width: 40px;
+  overflow: hidden;
+}
+
+.planner-sidebar.sidebar-collapsed .planner-sidebar-content {
+  display: none;
+}
+
+.planner-sidebar-toggle {
+  display: block;
+  width: 28px;
   min-height: 0;
+  padding: 4px 0;
+  margin: 0 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 1.1rem;
+  cursor: pointer;
+  text-align: center;
+  line-height: 1;
+}
+
+.planner-sidebar-toggle:hover {
+  background: var(--bg-alt, #edf2f7);
+  filter: none;
+}
+
+/* Collapsible details/summary */
+.planner-details {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  margin-top: 12px;
+}
+
+.planner-details:first-child {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+.planner-details > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  font-family: Georgia, serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  list-style: none;
+  user-select: none;
+  padding: 2px 0;
+}
+
+.planner-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.planner-details > summary::before {
+  content: "\25B6";
+  font-size: 0.65rem;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+  order: -1;
+}
+
+.planner-details[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.planner-details-body {
+  margin-top: 10px;
+}
+
+/* Summary-line filter checkbox */
+.planner-net-balance-summary-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: system-ui, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: default;
+  margin: 0;
+}
+
+.planner-net-balance-summary-filter input {
+  width: auto;
+  min-height: 0;
+  margin: 0;
 }
 
 .planner-add-popup {
@@ -100,80 +194,20 @@
   margin-bottom: 0;
 }
 
-.planner-net-balance-section {
-  margin-top: 14px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: linear-gradient(180deg, rgba(229, 237, 245, 0.55), rgba(251, 253, 255, 0.92));
-}
-
-.planner-net-balance-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: baseline;
-  margin-bottom: 10px;
-}
-
-.planner-net-balance-subtext {
-  margin: 4px 0 0;
-}
-
-.planner-net-balance-toolbar {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-}
-
-.planner-net-balance-filter {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  color: var(--text);
-  font-size: 0.92rem;
-  font-weight: 600;
-}
-
-.planner-net-balance-filter input {
-  width: auto;
-  min-height: 0;
-  margin: 0;
-}
-
-.planner-net-balance-count {
-  color: var(--muted);
-  font-size: 0.84rem;
-}
-
-.planner-net-balance-table-wrap {
-  overflow-x: auto;
-  border: 1px solid rgba(195, 208, 219, 0.9);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.82);
-}
-
+/* Compact net balance table */
 .planner-net-balance-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 260px;
+  min-width: 200px;
+  font-size: 0.82rem;
 }
 
 .planner-net-balance-table th,
 .planner-net-balance-table td {
-  padding: 7px 8px;
+  padding: 4px 6px;
   border-bottom: 1px solid rgba(195, 208, 219, 0.7);
   text-align: left;
   font-variant-numeric: tabular-nums;
-}
-
-.planner-net-balance-table th:last-child,
-.planner-net-balance-table td:last-child {
-  text-align: right;
 }
 
 .planner-net-balance-table tbody tr:last-child td {
@@ -182,6 +216,10 @@
 
 .planner-net-balance-table tbody tr:hover {
   background: rgba(45, 109, 163, 0.04);
+}
+
+.planner-net-col-number {
+  text-align: right;
 }
 
 .planner-net-balance-item {
@@ -193,19 +231,20 @@
   color: var(--muted);
 }
 
+.planner-net-col-bold {
+  font-weight: 700;
+}
+
 .planner-net-balance-number.net-positive {
   color: var(--ok);
-  font-weight: 700;
 }
 
 .planner-net-balance-number.net-negative {
   color: var(--danger);
-  font-weight: 700;
 }
 
 .planner-net-balance-number.net-neutral {
   color: var(--muted);
-  font-weight: 700;
 }
 
 .planner-sort-button {
@@ -220,6 +259,7 @@
   box-shadow: none;
   color: var(--text);
   font-weight: 700;
+  font-size: 0.82rem;
   cursor: pointer;
 }
 
@@ -234,5 +274,5 @@
 
 .planner-sort-indicator {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.7rem;
 }
