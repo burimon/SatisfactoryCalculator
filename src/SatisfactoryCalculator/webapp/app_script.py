@@ -170,6 +170,10 @@ SCRIPT = r"""
       return `${prefix}${formatAmount(amount)}`;
     }
 
+    function clampPercentage(value) {
+      return Math.max(0, Math.min(100, value));
+    }
+
     function clampZoom(zoom) {
       return Math.min(Math.max(zoom, 0.5), 2.5);
     }
@@ -443,16 +447,23 @@ SCRIPT = r"""
           }
           return total + (allocationMap.get(edge.id)?.allocatedRate ?? 0);
         }, 0);
-        const delta = connectedRate - entry.amount_per_minute;
+        const expectedRate = entry.amount_per_minute;
+        const delta = portType === "input"
+          ? connectedRate - expectedRate
+          : expectedRate - connectedRate;
         let status = "balanced";
         if (delta > 0.01) status = "source_surplus";
         if (delta < -0.01) status = "target_shortage";
+        const progress = expectedRate <= 0
+          ? 100
+          : clampPercentage((Math.min(connectedRate, expectedRate) / expectedRate) * 100);
         return {
           itemId: entry.item.id,
           itemName: entry.item.name,
           connectedRate,
-          expectedRate: entry.amount_per_minute,
-          status
+          expectedRate,
+          status,
+          progress
         };
       });
     }
@@ -469,6 +480,12 @@ SCRIPT = r"""
             <div class="planner-balance-row ${row.status}">
               <span class="planner-balance-side">${row.label}</span>
               <span class="planner-balance-item">${row.itemName}</span>
+              <div class="planner-balance-meter">
+                <div
+                  class="planner-balance-fill ${row.status}"
+                  style="width: ${row.progress}%"
+                ></div>
+              </div>
               <span class="planner-balance-rates">
                 ${formatAmount(row.connectedRate)} / ${formatAmount(row.expectedRate)}
               </span>
@@ -1056,6 +1073,26 @@ SCRIPT = r"""
             data-resize-node="${node.id}"
             data-resize-edge="bottom"
           ></div>
+          <div
+            class="planner-resize-handle top-left"
+            data-resize-node="${node.id}"
+            data-resize-edge="top-left"
+          ></div>
+          <div
+            class="planner-resize-handle top-right"
+            data-resize-node="${node.id}"
+            data-resize-edge="top-right"
+          ></div>
+          <div
+            class="planner-resize-handle bottom-left"
+            data-resize-node="${node.id}"
+            data-resize-edge="bottom-left"
+          ></div>
+          <div
+            class="planner-resize-handle bottom-right"
+            data-resize-node="${node.id}"
+            data-resize-edge="bottom-right"
+          ></div>
         `;
         nodeEl.addEventListener("click", (event) => {
           if (event.target.closest("button, input")) {
@@ -1642,18 +1679,22 @@ SCRIPT = r"""
             const point = clientToCanvasPoint(moveEvent.clientX, moveEvent.clientY);
             const dx = point.x - startX;
             const dy = point.y - startY;
-            if (edge === "right") {
+            const resizeLeft = edge.includes("left");
+            const resizeRight = edge.includes("right");
+            const resizeTop = edge.includes("top");
+            const resizeBottom = edge.includes("bottom");
+            if (resizeRight) {
               node.width = Math.max(MIN_NODE_WIDTH, startNode.width + dx);
             }
-            if (edge === "left") {
+            if (resizeLeft) {
               const nextWidth = Math.max(MIN_NODE_WIDTH, startNode.width - dx);
               node.x = startNode.x + (startNode.width - nextWidth);
               node.width = nextWidth;
             }
-            if (edge === "bottom") {
+            if (resizeBottom) {
               node.height = Math.max(MIN_NODE_HEIGHT, startNode.height + dy);
             }
-            if (edge === "top") {
+            if (resizeTop) {
               const nextHeight = Math.max(MIN_NODE_HEIGHT, startNode.height - dy);
               node.y = startNode.y + (startNode.height - nextHeight);
               node.height = nextHeight;

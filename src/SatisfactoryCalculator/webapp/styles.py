@@ -458,7 +458,7 @@ CSS = """
     }
     .planner-balance-row {
       display: grid;
-      grid-template-columns: 24px minmax(0, 1fr) auto;
+      grid-template-columns: 24px minmax(0, 1fr) minmax(58px, 0.8fr) auto;
       gap: 5px;
       align-items: center;
       border-radius: 8px;
@@ -491,6 +491,28 @@ CSS = """
       white-space: nowrap;
       color: var(--muted);
       font-variant-numeric: tabular-nums;
+    }
+    .planner-balance-meter {
+      position: relative;
+      height: 8px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(140, 164, 184, 0.18);
+      border: 1px solid rgba(140, 164, 184, 0.28);
+    }
+    .planner-balance-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: var(--ok);
+    }
+    .planner-balance-fill.balanced {
+      background: var(--ok);
+    }
+    .planner-balance-fill.source_surplus {
+      background: var(--warn);
+    }
+    .planner-balance-fill.target_shortage {
+      background: var(--danger);
     }
     .planner-node-grid {
       display: grid;
@@ -622,6 +644,33 @@ CSS = """
     .planner-resize-handle.bottom {
       bottom: -5px;
       cursor: ns-resize;
+    }
+    .planner-resize-handle.top-left,
+    .planner-resize-handle.top-right,
+    .planner-resize-handle.bottom-left,
+    .planner-resize-handle.bottom-right {
+      width: 14px;
+      height: 14px;
+    }
+    .planner-resize-handle.top-left {
+      top: -7px;
+      left: -7px;
+      cursor: nwse-resize;
+    }
+    .planner-resize-handle.top-right {
+      top: -7px;
+      right: -7px;
+      cursor: nesw-resize;
+    }
+    .planner-resize-handle.bottom-left {
+      bottom: -7px;
+      left: -7px;
+      cursor: nesw-resize;
+    }
+    .planner-resize-handle.bottom-right {
+      bottom: -7px;
+      right: -7px;
+      cursor: nwse-resize;
     }
     .button-row {
       display: flex;

@@ -91,6 +91,20 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(scaled["outputs"]["power"], 30.0)
         self.assertEqual(scaled["inputs"]["biomass"], 10.0)
 
+    def test_scale_recipe_for_target_supports_mining_source_recipes(self) -> None:
+        scaled = scale_recipe_for_target(get_recipe("mine_iron_ore"), "iron_ore", 180.0, 60.0)
+        self.assertEqual(scaled["multiplier"], 3.0)
+        self.assertEqual(scaled["per_machine_rate"], 60.0)
+        self.assertEqual(scaled["machine_count"], 3.0)
+        self.assertEqual(scaled["outputs"]["iron_ore"], 180.0)
+
+    def test_scale_recipe_for_target_supports_tier_two_assembler_recipes(self) -> None:
+        scaled = scale_recipe_for_target(get_recipe("modular_frame"), "modular_frame", 4.0)
+        self.assertEqual(scaled["multiplier"], 2.0)
+        self.assertEqual(scaled["outputs"]["modular_frame"], 4.0)
+        self.assertEqual(scaled["inputs"]["reinforced_iron_plate"], 6.0)
+        self.assertEqual(scaled["inputs"]["iron_rod"], 24.0)
+
     def test_connection_imbalance_balanced(self) -> None:
         result = connection_imbalance(
             source_recipe=get_recipe("iron_ingot"),

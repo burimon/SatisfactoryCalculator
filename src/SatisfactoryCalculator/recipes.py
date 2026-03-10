@@ -20,8 +20,12 @@ class Item(str, Enum):
     IRON_ROD = "iron_rod"
     WIRE = "wire"
     CABLE = "cable"
+    COPPER_SHEET = "copper_sheet"
     SCREW = "screw"
     REINFORCED_IRON_PLATE = "reinforced_iron_plate"
+    ROTOR = "rotor"
+    MODULAR_FRAME = "modular_frame"
+    SMART_PLATING = "smart_plating"
 
 
 ItemAmounts = dict[Item, float]
@@ -39,6 +43,30 @@ class Recipe:
 
 
 RECIPES: dict[str, Recipe] = {
+    "mine_iron_ore": Recipe(
+        id="mine_iron_ore",
+        name="Mine Iron Ore",
+        inputs={},
+        outputs={Item.IRON_ORE: 1},
+        duration_seconds=1.0,
+        building="miner",
+    ),
+    "mine_copper_ore": Recipe(
+        id="mine_copper_ore",
+        name="Mine Copper Ore",
+        inputs={},
+        outputs={Item.COPPER_ORE: 1},
+        duration_seconds=1.0,
+        building="miner",
+    ),
+    "mine_limestone": Recipe(
+        id="mine_limestone",
+        name="Mine Limestone",
+        inputs={},
+        outputs={Item.LIMESTONE: 1},
+        duration_seconds=1.0,
+        building="miner",
+    ),
     "biomass_leaves": Recipe(
         id="biomass_leaves",
         name="Biomass (Leaves)",
@@ -151,6 +179,14 @@ RECIPES: dict[str, Recipe] = {
         duration_seconds=2.0,
         building="constructor",
     ),
+    "copper_sheet": Recipe(
+        id="copper_sheet",
+        name="Copper Sheet",
+        inputs={Item.COPPER_INGOT: 2},
+        outputs={Item.COPPER_SHEET: 1},
+        duration_seconds=6.0,
+        building="constructor",
+    ),
     "screw": Recipe(
         id="screw",
         name="Screw",
@@ -165,6 +201,30 @@ RECIPES: dict[str, Recipe] = {
         inputs={Item.IRON_PLATE: 6, Item.SCREW: 12},
         outputs={Item.REINFORCED_IRON_PLATE: 1},
         duration_seconds=12.0,
+        building="assembler",
+    ),
+    "rotor": Recipe(
+        id="rotor",
+        name="Rotor",
+        inputs={Item.IRON_ROD: 5, Item.SCREW: 25},
+        outputs={Item.ROTOR: 1},
+        duration_seconds=15.0,
+        building="assembler",
+    ),
+    "modular_frame": Recipe(
+        id="modular_frame",
+        name="Modular Frame",
+        inputs={Item.REINFORCED_IRON_PLATE: 3, Item.IRON_ROD: 12},
+        outputs={Item.MODULAR_FRAME: 2},
+        duration_seconds=60.0,
+        building="assembler",
+    ),
+    "smart_plating": Recipe(
+        id="smart_plating",
+        name="Smart Plating",
+        inputs={Item.REINFORCED_IRON_PLATE: 1, Item.ROTOR: 1},
+        outputs={Item.SMART_PLATING: 1},
+        duration_seconds=30.0,
         building="assembler",
     ),
 }

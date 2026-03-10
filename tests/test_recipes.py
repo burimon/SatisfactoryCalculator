@@ -46,6 +46,10 @@ class RecipeRegistryTests(unittest.TestCase):
         recipes = find_recipes_by_output(Item.IRON_INGOT)
         self.assertEqual([recipe.id for recipe in recipes], ["iron_ingot"])
 
+    def test_find_recipes_by_output_returns_mining_recipe_for_raw_ore(self) -> None:
+        recipes = find_recipes_by_output(Item.IRON_ORE)
+        self.assertEqual([recipe.id for recipe in recipes], ["mine_iron_ore"])
+
     def test_find_recipes_by_output_returns_all_biomass_variants(self) -> None:
         recipes = find_recipes_by_output(Item.BIOMASS)
         self.assertEqual(
@@ -67,6 +71,21 @@ class RecipeRegistryTests(unittest.TestCase):
         self.assertEqual(
             [recipe.id for recipe in recipes],
             ["power_biomass", "power_solid_biofuel"],
+        )
+
+    def test_find_recipes_by_output_returns_tier_two_recipes(self) -> None:
+        self.assertEqual(
+            [recipe.id for recipe in find_recipes_by_output(Item.COPPER_SHEET)],
+            ["copper_sheet"],
+        )
+        self.assertEqual([recipe.id for recipe in find_recipes_by_output(Item.ROTOR)], ["rotor"])
+        self.assertEqual(
+            [recipe.id for recipe in find_recipes_by_output(Item.MODULAR_FRAME)],
+            ["modular_frame"],
+        )
+        self.assertEqual(
+            [recipe.id for recipe in find_recipes_by_output(Item.SMART_PLATING)],
+            ["smart_plating"],
         )
 
 

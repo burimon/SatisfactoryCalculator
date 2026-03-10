@@ -45,6 +45,25 @@ class WebApiTests(unittest.TestCase):
             ["power_biomass", "power_solid_biofuel"],
         )
 
+    def test_find_recipe_payloads_by_output_returns_mining_payloads(self) -> None:
+        payloads = find_recipe_payloads_by_output("iron_ore")
+        self.assertEqual([payload["id"] for payload in payloads], ["mine_iron_ore"])
+
+    def test_get_recipe_payload_includes_tier_two_recipe(self) -> None:
+        payload = get_recipe_payload("rotor")
+        self.assertEqual(payload["name"], "Rotor")
+        self.assertEqual(
+            payload["inputs"],
+            [
+                {"item": {"id": "iron_rod", "name": "Iron Rod"}, "amount": 5},
+                {"item": {"id": "screw", "name": "Screw"}, "amount": 25},
+            ],
+        )
+        self.assertEqual(
+            payload["outputs"],
+            [{"item": {"id": "rotor", "name": "Rotor"}, "amount": 1}],
+        )
+
     def test_recipe_and_item_lists_are_sorted_by_display_name(self) -> None:
         recipe_names = [payload["name"] for payload in list_recipes()]
         item_names = [payload["name"] for payload in list_items()]
