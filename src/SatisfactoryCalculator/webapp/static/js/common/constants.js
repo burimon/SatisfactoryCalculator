@@ -1,0 +1,10 @@
+export const WORKFLOW_VERSION = 1;
+export const POWER_ITEM_ID = "power";
+export const BELT_CAPACITY_OPTIONS = [60, 120, 270, 480, 780];
+export const DEFAULT_NODE_WIDTH = 200;
+export const DEFAULT_NODE_HEIGHT = 152;
+export const MIN_NODE_WIDTH = 180;
+export const MIN_NODE_HEIGHT = 132;
+export const MIN_ZOOM = 0.5;
+export const MAX_ZOOM = 2.5;
+export const EDGE_PADDING = 240;

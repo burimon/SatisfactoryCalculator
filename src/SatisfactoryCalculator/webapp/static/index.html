@@ -1,4 +1,100 @@
-PLANNER_VIEW = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Satisfactory Recipe Browser</title>
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/browser.css">
+  <link rel="stylesheet" href="/static/css/planner.css">
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>Satisfactory Recipe Browser</h1>
+      <p>
+        Browse recipe details, compare production rates, and build a local workflow plan by
+        connecting recipe nodes with explicit item flow.
+      </p>
+      <div class="mode-switch" role="tablist" aria-label="Application mode">
+        <button type="button" class="mode-button active" data-mode="browser">Browser</button>
+        <button type="button" class="mode-button" data-mode="planner">Planner</button>
+      </div>
+    </section>
+
+    <section id="browser-view" class="mode-view active">
+      <section class="content">
+        <section class="panel">
+          <h2>Recipe Details</h2>
+          <p class="subtext">
+            Inspect the selected recipe as structured data with readable inputs and outputs.
+          </p>
+          <div class="controls">
+            <div class="field">
+              <label for="recipe-input">Recipe</label>
+              <input id="recipe-input" list="recipe-options" type="search" autocomplete="off">
+              <datalist id="recipe-options"></datalist>
+            </div>
+            <div class="field">
+              <label for="rate-select">Rate View</label>
+              <select id="rate-select">
+                <option value="per_cycle">Per Cycle</option>
+                <option value="per_second">Per Second</option>
+                <option value="per_minute">Per Minute</option>
+              </select>
+            </div>
+            <label class="toggle"><input id="debug-toggle" type="checkbox"> Debug ids</label>
+          </div>
+          <div class="summary">
+            <div>
+              <div id="recipe-name" class="name"></div>
+              <div id="recipe-id" class="debug-id"></div>
+            </div>
+            <div>
+              <div class="metric-label">Building</div>
+              <div id="recipe-building" class="metric-value"></div>
+            </div>
+            <div>
+              <div class="metric-label">Cycle Time</div>
+              <div id="recipe-cycle" class="metric-value"></div>
+            </div>
+            <div>
+              <div class="metric-label">Rate View</div>
+              <div id="recipe-rate" class="metric-value"></div>
+            </div>
+          </div>
+          <div class="io-sections">
+            <section class="io-card inputs">
+              <h3>Inputs</h3>
+              <div id="inputs-list" class="row-list"></div>
+            </section>
+            <section class="io-card outputs">
+              <h3>Outputs</h3>
+              <div id="outputs-list" class="row-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Find Recipes By Output</h2>
+          <p class="subtext">
+            Use official item labels in the UI, then load any result back into the detail view.
+          </p>
+          <div class="search-box">
+            <div class="field">
+              <label for="output-input">Output Item</label>
+              <input id="output-input" list="output-options" type="search" autocomplete="off">
+              <datalist id="output-options"></datalist>
+            </div>
+            <div class="stack-gap">
+              <button id="search-button" type="button">Find Recipes</button>
+            </div>
+          </div>
+          <div id="results-list" class="results-list"></div>
+        </section>
+      </section>
+    </section>
+
     <section id="planner-view" class="mode-view">
       <section class="planner-layout">
         <section class="panel planner-sidebar">
@@ -52,11 +148,7 @@ PLANNER_VIEW = """
                 New Plan
               </button>
               <button id="export-workflow-button" type="button">Export JSON</button>
-              <button
-                id="import-workflow-button"
-                type="button"
-                class="secondary-button"
-              >
+              <button id="import-workflow-button" type="button" class="secondary-button">
                 Import JSON
               </button>
             </div>
@@ -85,6 +177,7 @@ PLANNER_VIEW = """
               <div id="planner-summary" class="planner-summary">No nodes yet.</div>
             </div>
           </div>
+
           <section class="planner-net-balance-section">
             <div class="planner-net-balance-header">
               <div>
@@ -96,11 +189,20 @@ PLANNER_VIEW = """
             </div>
             <div id="planner-net-balance" class="planner-net-balance"></div>
           </section>
+
           <div id="planner-workspace" class="planner-workspace">
-            <div id="planner-canvas" class="planner-canvas">
-              <svg id="planner-connections-svg" class="planner-connections-svg"></svg>
+            <div id="planner-viewport" class="planner-viewport">
+              <div id="planner-world" class="planner-world">
+                <div id="planner-grid-layer" class="planner-grid-layer"></div>
+                <svg id="planner-connections-svg" class="planner-connections-svg"></svg>
+                <div id="planner-connection-labels" class="planner-connection-labels"></div>
+                <div id="planner-node-layer" class="planner-node-layer"></div>
+              </div>
+              <div id="planner-empty" class="planner-empty">
+                Add a node from an output item to start a workflow.
+              </div>
             </div>
-            <div id="planner-connection-labels" class="planner-connection-labels"></div>
+
             <div id="planner-target-popup" class="planner-target-popup" hidden>
               <div class="planner-target-popup-card">
                 <h3 id="planner-target-popup-title">Target</h3>
@@ -116,16 +218,13 @@ PLANNER_VIEW = """
                 </div>
                 <div class="button-row">
                   <button id="planner-target-popup-save" type="button">Apply</button>
-                  <button
-                    id="planner-target-popup-cancel"
-                    type="button"
-                    class="secondary-button"
-                  >
+                  <button id="planner-target-popup-cancel" type="button" class="secondary-button">
                     Cancel
                   </button>
                 </div>
               </div>
             </div>
+
             <div id="planner-add-popup" class="planner-add-popup" hidden>
               <div class="planner-add-popup-card">
                 <h3>Add Node</h3>
@@ -154,11 +253,14 @@ PLANNER_VIEW = """
                 </div>
               </div>
             </div>
-            <div id="planner-empty" class="planner-empty">
-              Add a node from an output item to start a workflow.
-            </div>
           </div>
         </section>
       </section>
     </section>
-"""
+
+    <div id="status" class="status">Loading recipes...</div>
+  </div>
+
+  <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>

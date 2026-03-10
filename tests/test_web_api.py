@@ -73,9 +73,9 @@ class WebApiTests(unittest.TestCase):
 
     def test_html_includes_planner_net_balance_table_mount(self) -> None:
         self.assertIn('id="planner-net-balance"', HTML)
-        self.assertIn('data-net-sort-key="item"', HTML)
-        self.assertIn('data-net-sort-key="net"', HTML)
-        self.assertIn("Hide balanced", HTML)
+        self.assertIn("/static/css/base.css", HTML)
+        self.assertIn("/static/css/planner.css", HTML)
+        self.assertIn("/static/js/app.js", HTML)
 
 
 if __name__ == "__main__":

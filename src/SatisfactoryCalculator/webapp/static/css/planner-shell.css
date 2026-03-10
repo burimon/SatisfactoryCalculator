@@ -1,0 +1,238 @@
+.planner-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  gap: 20px;
+}
+
+.planner-section + .planner-section {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.compact-results .result-card {
+  min-height: 0;
+}
+
+.planner-add-popup {
+  position: absolute;
+  z-index: 10;
+  width: 320px;
+  max-width: calc(100% - 24px);
+}
+
+.planner-add-popup-card {
+  background: rgba(251, 253, 255, 0.98);
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 18px 30px rgba(24, 34, 44, 0.16);
+}
+
+.planner-add-popup-card h3 {
+  margin-bottom: 12px;
+  font-size: 1rem;
+  font-family: Georgia, serif;
+}
+
+.planner-target-popup {
+  position: absolute;
+  z-index: 11;
+  width: 220px;
+  max-width: calc(100% - 24px);
+}
+
+.planner-target-popup-card {
+  background: rgba(251, 253, 255, 0.98);
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 18px 30px rgba(24, 34, 44, 0.16);
+}
+
+.planner-target-popup-card h3 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  font-family: Georgia, serif;
+}
+
+.planner-summary {
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.planner-path {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.planner-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.planner-heading-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.planner-zoom-controls {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.planner-zoom-controls button {
+  min-height: 0;
+  width: auto;
+  padding: 8px 12px;
+}
+
+.planner-subtext {
+  margin-bottom: 0;
+}
+
+.planner-net-balance-section {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(229, 237, 245, 0.55), rgba(251, 253, 255, 0.92));
+}
+
+.planner-net-balance-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+
+.planner-net-balance-subtext {
+  margin: 4px 0 0;
+}
+
+.planner-net-balance-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.planner-net-balance-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.planner-net-balance-filter input {
+  width: auto;
+  min-height: 0;
+  margin: 0;
+}
+
+.planner-net-balance-count {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.planner-net-balance-table-wrap {
+  overflow-x: auto;
+  border: 1px solid rgba(195, 208, 219, 0.9);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.planner-net-balance-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 480px;
+}
+
+.planner-net-balance-table th,
+.planner-net-balance-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(195, 208, 219, 0.7);
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.planner-net-balance-table th:last-child,
+.planner-net-balance-table td:last-child {
+  text-align: right;
+}
+
+.planner-net-balance-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.planner-net-balance-table tbody tr:hover {
+  background: rgba(45, 109, 163, 0.04);
+}
+
+.planner-net-balance-item {
+  font-weight: 600;
+}
+
+.planner-net-balance-number {
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.planner-net-balance-number.net-positive {
+  color: var(--ok);
+  font-weight: 700;
+}
+
+.planner-net-balance-number.net-negative {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.planner-net-balance-number.net-neutral {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.planner-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.planner-sort-button:hover {
+  filter: none;
+  color: var(--accent-dark);
+}
+
+.planner-sort-button.active {
+  color: var(--accent-dark);
+}
+
+.planner-sort-indicator {
+  color: var(--muted);
+  font-size: 0.78rem;
+}

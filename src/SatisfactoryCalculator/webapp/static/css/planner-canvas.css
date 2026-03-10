@@ -1,0 +1,141 @@
+.planner-workspace {
+  position: relative;
+  min-height: 920px;
+  margin-top: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9));
+  overflow: hidden;
+}
+
+.planner-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.planner-world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: top left;
+  overflow: visible;
+}
+
+.planner-grid-layer {
+  position: absolute;
+  left: -6000px;
+  top: -6000px;
+  width: 12000px;
+  height: 12000px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.88)),
+    linear-gradient(90deg, rgba(45, 109, 163, 0.05) 1px, transparent 1px),
+    linear-gradient(rgba(45, 109, 163, 0.05) 1px, transparent 1px);
+  background-size: auto, 24px 24px, 24px 24px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.planner-connections-svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 1;
+}
+
+.planner-connection-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 2;
+}
+
+.planner-node-layer {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  z-index: 3;
+}
+
+.planner-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 1rem;
+  pointer-events: none;
+}
+
+.edge-line {
+  fill: none;
+  stroke-width: 3;
+  opacity: 0.88;
+}
+
+.edge-preview {
+  stroke-dasharray: 8 6;
+  opacity: 0.7;
+}
+
+.edge-line.balanced {
+  stroke: var(--ok);
+  color: var(--ok);
+}
+
+.edge-line.source_surplus {
+  stroke: var(--warn);
+  color: var(--warn);
+}
+
+.edge-line.target_shortage {
+  stroke: var(--danger);
+  color: var(--danger);
+}
+
+.planner-connection-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(140, 164, 184, 0.9);
+  background: rgba(251, 253, 255, 0.96);
+  color: var(--text);
+  box-shadow: 0 8px 18px rgba(24, 34, 44, 0.12);
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.planner-connection-label.balanced {
+  border-color: rgba(41, 115, 74, 0.35);
+}
+
+.planner-connection-label.source_surplus {
+  border-color: rgba(155, 108, 24, 0.42);
+}
+
+.planner-connection-label.target_shortage {
+  border-color: rgba(163, 71, 45, 0.42);
+}
+
+.connection-delete-button {
+  min-height: 0;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  box-shadow: none;
+  border-radius: 999px;
+  background: rgba(24, 34, 44, 0.08);
+  color: var(--text);
+}
