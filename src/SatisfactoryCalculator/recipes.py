@@ -36,6 +36,14 @@ class Item(str, Enum):
     STATOR = "stator"
     MOTOR = "motor"
     AUTOMATED_WIRING = "automated_wiring"
+    RAW_QUARTZ = "raw_quartz"
+    QUARTZ_CRYSTAL = "quartz_crystal"
+    SILICA = "silica"
+    CRYSTAL_OSCILLATOR = "crystal_oscillator"
+    CATERIUM_ORE = "caterium_ore"
+    CATERIUM_INGOT = "caterium_ingot"
+    QUICKWIRE = "quickwire"
+    AI_LIMITER = "ai_limiter"
 
 
 ItemAmounts = dict[Item, float]
@@ -323,6 +331,70 @@ RECIPES: dict[str, Recipe] = {
         inputs={Item.STATOR: 1, Item.CABLE: 20},
         outputs={Item.AUTOMATED_WIRING: 1},
         duration_seconds=24.0,
+        building="assembler",
+    ),
+    "mine_raw_quartz": Recipe(
+        id="mine_raw_quartz",
+        name="Mine Raw Quartz",
+        inputs={},
+        outputs={Item.RAW_QUARTZ: 1},
+        duration_seconds=1.0,
+        building="miner",
+    ),
+    "quartz_crystal": Recipe(
+        id="quartz_crystal",
+        name="Quartz Crystal",
+        inputs={Item.RAW_QUARTZ: 5},
+        outputs={Item.QUARTZ_CRYSTAL: 3},
+        duration_seconds=8.0,
+        building="constructor",
+    ),
+    "silica": Recipe(
+        id="silica",
+        name="Silica",
+        inputs={Item.RAW_QUARTZ: 3},
+        outputs={Item.SILICA: 5},
+        duration_seconds=8.0,
+        building="constructor",
+    ),
+    "crystal_oscillator": Recipe(
+        id="crystal_oscillator",
+        name="Crystal Oscillator",
+        inputs={Item.QUARTZ_CRYSTAL: 36, Item.CABLE: 28, Item.REINFORCED_IRON_PLATE: 5},
+        outputs={Item.CRYSTAL_OSCILLATOR: 2},
+        duration_seconds=120.0,
+        building="manufacturer",
+    ),
+    "mine_caterium_ore": Recipe(
+        id="mine_caterium_ore",
+        name="Mine Caterium Ore",
+        inputs={},
+        outputs={Item.CATERIUM_ORE: 1},
+        duration_seconds=1.0,
+        building="miner",
+    ),
+    "caterium_ingot": Recipe(
+        id="caterium_ingot",
+        name="Caterium Ingot",
+        inputs={Item.CATERIUM_ORE: 3},
+        outputs={Item.CATERIUM_INGOT: 1},
+        duration_seconds=4.0,
+        building="smelter",
+    ),
+    "quickwire": Recipe(
+        id="quickwire",
+        name="Quickwire",
+        inputs={Item.CATERIUM_INGOT: 1},
+        outputs={Item.QUICKWIRE: 5},
+        duration_seconds=5.0,
+        building="constructor",
+    ),
+    "ai_limiter": Recipe(
+        id="ai_limiter",
+        name="AI Limiter",
+        inputs={Item.QUICKWIRE: 5, Item.COPPER_SHEET: 2},
+        outputs={Item.AI_LIMITER: 1},
+        duration_seconds=12.0,
         building="assembler",
     ),
 }
